@@ -1,5 +1,5 @@
-use crate::arch::x86_64::gdt::segment::*;
-use crate::arch::x86_64::gdt::selector::SegmentSelector;
+use crate::arch::x86_64::segmentation::segment::*;
+use crate::arch::x86_64::segmentation::selector::SegmentSelector;
 use crate::arch::x86_64::privilege::PrivilegeLevel;
 use crate::arch::x86_64::tables::DescriptorTablePointer;
 use crate::util::address::VirtualAddress;

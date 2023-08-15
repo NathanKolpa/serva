@@ -1,9 +1,6 @@
 use lazy_static::lazy_static;
 
-use crate::arch::x86_64::gdt::{
-    GlobalDescriptorTable, LongSegment, NormalSegment, SegmentDescriptor, SegmentSelector,
-};
-use crate::arch::x86_64::tss::{InterruptStackRef, TaskStateSegment};
+use crate::arch::x86_64::segmentation::*;
 
 const DOUBLE_FAULT_IST_INDEX: usize = 0;
 
