@@ -1,5 +1,6 @@
-use crate::arch::x86_64::privilege::PrivilegeLevel;
 use core::arch::asm;
+
+use crate::arch::x86_64::privilege::PrivilegeLevel;
 
 #[repr(transparent)]
 #[derive(Copy, Clone)]
@@ -8,7 +9,13 @@ pub struct SegmentSelector {
 }
 
 impl SegmentSelector {
-    pub const fn new(index: u16, privilege: PrivilegeLevel) -> SegmentSelector {
+    pub const fn empty() -> Self {
+        Self {
+            value: 0
+        }
+    }
+
+    pub const fn new(index: u16, privilege: PrivilegeLevel) -> Self {
         Self {
             value: index << 3 | privilege as u16,
         }

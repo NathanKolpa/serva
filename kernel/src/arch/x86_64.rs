@@ -1,10 +1,12 @@
 //! Implementation of x86_64 concepts
+pub use init::init_x86_64;
 pub use instructions::*;
+pub use privilege::PrivilegeLevel;
 
-pub mod segmentation;
-pub mod init;
+mod init;
 mod instructions;
 pub mod interrupts;
 pub mod port;
-pub mod privilege;
+mod privilege;
+pub mod segmentation;
 pub mod tables;

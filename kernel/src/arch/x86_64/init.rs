@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use crate::arch::x86_64::interrupts::{InterruptDescriptorTable, InterruptStackFrame};
 
 use crate::arch::x86_64::segmentation::*;
 
@@ -44,6 +45,23 @@ lazy_static! {
     };
 }
 
+extern "x86-interrupt" fn double_fault_handler(_frame: InterruptStackFrame, _error_code: u64) -> ! {
+    panic!("Double fault interrupt")
+}
+
+lazy_static! {
+    static ref IDT: InterruptDescriptorTable = {
+        let kernel_segment = GDT.kernel_code;
+
+        let mut idt = InterruptDescriptorTable::new();
+
+        idt.double_fault.set_handler(kernel_segment, double_fault_handler);
+        idt.double_fault.set_stack_index(DOUBLE_FAULT_IST_INDEX);
+
+        idt
+    };
+}
+
 pub fn init_x86_64() {
     GDT.table.load();
 
@@ -51,4 +69,6 @@ pub fn init_x86_64() {
         GDT.kernel_code.load_into_cs(); // Meaning the current code segment (CS) is the kernel code
         GDT.tss.load_into_tss(); // Load the TSS.
     }
+
+    IDT.load();
 }

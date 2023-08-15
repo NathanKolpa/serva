@@ -1,9 +1,10 @@
+use core::mem::size_of;
+
 use crate::arch::x86_64::segmentation::segment::*;
 use crate::arch::x86_64::segmentation::selector::SegmentSelector;
-use crate::arch::x86_64::privilege::PrivilegeLevel;
 use crate::arch::x86_64::tables::DescriptorTablePointer;
+use crate::arch::x86_64::PrivilegeLevel;
 use crate::util::address::VirtualAddress;
-use core::mem::size_of;
 
 pub enum SegmentDescriptor {
     NormalSegment(NormalSegment<UserAccessByte>),
