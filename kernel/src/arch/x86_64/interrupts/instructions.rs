@@ -54,3 +54,9 @@ pub fn atomic_block<F: FnOnce()>(callback: F) {
         enable_interrupts();
     }
 }
+
+pub fn int3() {
+    unsafe {
+        asm!("int3", options(nomem, nostack));
+    }
+}
