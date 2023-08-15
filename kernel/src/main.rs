@@ -8,14 +8,15 @@ use core::panic::PanicInfo;
 
 use bootloader::{entry_point, BootInfo};
 
-use kernel::arch::x86_64::halt;
-use kernel::debug_println;
+use kernel::init::kernel_main;
 
 entry_point!(_start);
 
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
+    use kernel::debug_println;
+
     debug_println!("Kernel Panic: {}", info);
     loop {}
 }
@@ -26,11 +27,9 @@ fn panic(info: &PanicInfo) -> ! {
     kernel::testing::test_panic_handler(info)
 }
 
-fn _start(_boot_info: &'static BootInfo) -> ! {
+fn _start(boot_info: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
-    debug_println!("Starting the Serva Operating System...");
-
-    halt()
+    kernel_main(boot_info)
 }
