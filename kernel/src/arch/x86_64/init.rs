@@ -65,11 +65,11 @@ lazy_static! {
 
 pub fn init_x86_64() {
     GDT.table.load();
-
     unsafe {
         GDT.kernel_code.load_into_cs(); // Meaning the current code segment (CS) is the kernel code
         GDT.tss.load_into_tss(); // Load the TSS.
     }
+    /*
 
-    IDT.load();
+    IDT.load();*/
 }

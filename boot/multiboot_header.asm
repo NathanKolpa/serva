@@ -1,13 +1,15 @@
-ALIGN 4
 section .multiboot_header
+header_start:
+    dd 0xe85250d6                ; magic number (multiboot 2)
+    dd 0                         ; architecture 0 (protected mode i386)
+    dd header_end - header_start ; header length
+    ; checksum
+    dd 0x100000000 - (0xe85250d6 + 0 + (header_end - header_start))
 
-    MULTIBOOT_PAGE_ALIGN	equ 1<<0
-    MULTIBOOT_MEMORY_INFO	equ 1<<1
+    ; insert optional multiboot tags here
 
-    MULTIBOOT_HEADER_MAGIC	equ 0x1BADB002                                          ; magic number
-    MULTIBOOT_HEADER_FLAGS	equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO        ; flags
-    MULTIBOOT_CHECKSUM	    equ - (MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS) ; checksum
-
-    dd MULTIBOOT_HEADER_MAGIC
-    dd MULTIBOOT_HEADER_FLAGS
-    dd MULTIBOOT_CHECKSUM
+    ; required end tag
+    dw 0    ; type
+    dw 0    ; flags
+    dd 8    ; size
+header_end:
