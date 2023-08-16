@@ -7,15 +7,14 @@
 
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
-use lazy_static::lazy_static;
-use kernel::arch::x86_64::{halt};
+use kernel::arch::x86_64::halt;
 use kernel::arch::x86_64::interrupts::{int3, InterruptDescriptorTable, InterruptStackFrame};
 use kernel::arch::x86_64::segmentation::*;
-
+use lazy_static::lazy_static;
 
 struct FullGdt {
     table: GlobalDescriptorTable,
-    kernel_code: SegmentSelector
+    kernel_code: SegmentSelector,
 }
 
 lazy_static! {
@@ -28,17 +27,11 @@ lazy_static! {
             ))
             .unwrap();
 
-
-        FullGdt {
-            table,
-            kernel_code
-        }
+        FullGdt { table, kernel_code }
     };
 }
 
-extern "x86-interrupt" fn debug_handler(_: InterruptStackFrame) {
-}
-
+extern "x86-interrupt" fn debug_handler(_: InterruptStackFrame) {}
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {

@@ -15,8 +15,8 @@ entry_point!(_start);
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    use kernel::debug_println;
     use kernel::arch::x86_64::halt;
+    use kernel::debug_println;
 
     debug_println!("Kernel Panic: {info}");
     halt()

@@ -1,5 +1,7 @@
 //! Concurrency primitives
 
-pub use spin::SpinMutex;
+pub use expected::Expected;
+pub use spin::{SpinMutex, SpinRwLock};
 
+mod expected;
 mod spin;

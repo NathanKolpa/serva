@@ -35,7 +35,10 @@ lazy_static! {
     };
 }
 
-extern "x86-interrupt" fn page_fault_handler(_frame: InterruptStackFrame, _error: PageFaultErrorCode) {
+extern "x86-interrupt" fn page_fault_handler(
+    _frame: InterruptStackFrame,
+    _error: PageFaultErrorCode,
+) {
     halt()
 }
 
@@ -44,7 +47,8 @@ lazy_static! {
         let kernel_segment = GDT.kernel_code;
         let mut idt = InterruptDescriptorTable::new();
 
-        idt.page_fault.set_handler(kernel_segment, page_fault_handler);
+        idt.page_fault
+            .set_handler(kernel_segment, page_fault_handler);
 
         idt
     };

@@ -28,6 +28,16 @@ impl<L> Address<L> {
         }
     }
 
+    pub fn align_ptr_up(addr: u64, align: u64) -> u64 {
+        assert!(align.is_power_of_two(), "`align` must be a power of two");
+        (addr + align - 1) & !(align - 1)
+    }
+
+    pub fn align_ptr_down(addr: u64, align: u64) -> u64 {
+        assert!(align.is_power_of_two(), "`align` must be a power of two");
+        addr & !(align - 1)
+    }
+
     pub fn as_u64(&self) -> u64 {
         self.addr
     }
@@ -44,14 +54,14 @@ impl<L> Address<L> {
 impl Address<PhysicalAddressMarker> {
     pub fn align_down(&mut self, align: u64) {
         assert!(align.is_power_of_two(), "`align` must be a power of two");
-        self.addr = self.addr & !(align - 1);
+        self.addr = Self::align_ptr_down(self.addr, align)
     }
 }
 
 impl Address<VirtualAddressMarker> {
     pub fn align_down(&mut self, align: u64) {
         assert!(align.is_power_of_two(), "`align` must be a power of two");
-        self.addr = self.addr & !(align - 1);
+        self.addr = Self::align_ptr_down(self.addr, align);
         self.addr = ((self.addr << 16) as i64 >> 16) as u64
     }
 

@@ -10,9 +10,7 @@ pub struct SegmentSelector {
 
 impl SegmentSelector {
     pub const fn empty() -> Self {
-        Self {
-            value: 0
-        }
+        Self { value: 0 }
     }
 
     pub const fn new(index: u16, privilege: PrivilegeLevel) -> Self {

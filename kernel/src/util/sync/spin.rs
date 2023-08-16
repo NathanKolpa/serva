@@ -1,2 +1,2 @@
 pub use spin::Mutex as SpinMutex;
-pub use spin::MutexGuard as LockGuard;
+pub use spin::RwLock as SpinRwLock;

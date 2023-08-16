@@ -1,5 +1,5 @@
-use lazy_static::lazy_static;
 use crate::arch::x86_64::interrupts::{InterruptDescriptorTable, InterruptStackFrame};
+use lazy_static::lazy_static;
 
 use crate::arch::x86_64::segmentation::*;
 
@@ -55,7 +55,8 @@ lazy_static! {
 
         let mut idt = InterruptDescriptorTable::new();
 
-        idt.double_fault.set_handler(kernel_segment, double_fault_handler);
+        idt.double_fault
+            .set_handler(kernel_segment, double_fault_handler);
         idt.double_fault.set_stack_index(DOUBLE_FAULT_IST_INDEX);
 
         idt

@@ -95,7 +95,7 @@ impl GateAttributes {
 
     pub const fn new() -> Self {
         Self {
-            type_attributes: Self::transform_type_bits(0, Self::INTERRUPT_GATE_TYPE)
+            type_attributes: Self::transform_type_bits(0, Self::INTERRUPT_GATE_TYPE),
         }
     }
 

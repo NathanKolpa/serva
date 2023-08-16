@@ -6,7 +6,10 @@ pub use privilege::PrivilegeLevel;
 mod init;
 mod instructions;
 pub mod interrupts;
+pub mod paging;
 pub mod port;
 mod privilege;
 pub mod segmentation;
 pub mod tables;
+
+pub const ARCH_NAME: &str = "x86_64";

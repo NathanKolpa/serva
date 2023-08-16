@@ -9,5 +9,6 @@ pub mod arch;
 pub mod debug;
 pub mod devices;
 pub mod init;
+pub mod memory;
 pub mod testing;
 pub mod util;

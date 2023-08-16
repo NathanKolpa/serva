@@ -22,3 +22,5 @@ pub fn _serial_print(args: core::fmt::Arguments) {
         SERIAL.lock().write_fmt(args).unwrap();
     });
 }
+
+pub const DEBUG_CHANNEL: &str = "16550 UART (Serial)";
