@@ -2,3 +2,6 @@
 
 .idea/
 .vscode/
+
+boot/*.o
+boot/*.bin

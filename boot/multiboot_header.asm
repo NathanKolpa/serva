@@ -1,0 +1,13 @@
+ALIGN 4
+section .multiboot_header
+
+    MULTIBOOT_PAGE_ALIGN	equ 1<<0
+    MULTIBOOT_MEMORY_INFO	equ 1<<1
+
+    MULTIBOOT_HEADER_MAGIC	equ 0x1BADB002                                          ; magic number
+    MULTIBOOT_HEADER_FLAGS	equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO        ; flags
+    MULTIBOOT_CHECKSUM	    equ - (MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS) ; checksum
+
+    dd MULTIBOOT_HEADER_MAGIC
+    dd MULTIBOOT_HEADER_FLAGS
+    dd MULTIBOOT_CHECKSUM
