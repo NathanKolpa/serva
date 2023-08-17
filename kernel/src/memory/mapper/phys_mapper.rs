@@ -54,7 +54,7 @@ impl PhysicalMemoryMapper {
                     entry.set_flags(flags);
                     entry.set_addr(frame.addr());
                     table.as_mut_slice()[index] = entry;
-                    table.flush();
+                    table.flush(); // TODO: Flush if l4_page_table.is_none()
                 }
                 (_, false) => {
                     let allocated_page = allocator
@@ -85,8 +85,12 @@ impl PhysicalMemoryMapper {
 }
 
 impl MemoryMapper for PhysicalMemoryMapper {
-    fn translate_physical_to_virtual(&self, addr: VirtualAddress) -> Option<PhysicalAddress> {
-        let (mut frame, _) = PhysicalPage::active();
+    fn translate_virtual_to_physical(
+        &self,
+        addr: VirtualAddress,
+        l4_page_table: Option<PhysicalPage>,
+    ) -> Option<PhysicalAddress> {
+        let mut frame = l4_page_table.unwrap_or_else(|| PhysicalPage::active().0);
         let mut offset = addr.page_offset() as u64;
 
         for (page_level, index) in addr
@@ -121,6 +125,32 @@ impl MemoryMapper for PhysicalMemoryMapper {
         }
 
         Some(frame.addr() + offset)
+    }
+
+    fn new_l4_page_table(
+        &self,
+        allocator: &impl FrameAllocator,
+        with_entries_from: Option<PhysicalPage>,
+    ) -> Result<PhysicalPage, NewMappingError> {
+        let new_frame = allocator
+            .allocate_new_page_table()
+            .ok_or(NewMappingError::OutOfFrames)?;
+
+        let table_ptr: *mut PageTable = self.translate_table_frame(new_frame.addr()).as_mut_ptr();
+        let table = unsafe { &mut *table_ptr };
+
+        if let Some(with_entries_from) = with_entries_from {
+            let clone_table_ptr: *const PageTable = self
+                .translate_table_frame(with_entries_from.addr())
+                .as_ptr();
+            let clone_table = unsafe { &*clone_table_ptr };
+
+            table.as_mut_slice().copy_from_slice(clone_table.as_slice())
+        } else {
+            table.zero();
+        }
+
+        Ok(new_frame)
     }
 
     unsafe fn map_to(

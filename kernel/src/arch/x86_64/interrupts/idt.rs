@@ -1,4 +1,4 @@
-use crate::arch::x86_64::interrupts::{DivergingErrorIsr, GateDescriptor, Isr, PageFaultIsr};
+use crate::arch::x86_64::interrupts::{DivergingErrorIsr, ErrorIsr, GateDescriptor, Isr, PageFaultIsr};
 use crate::arch::x86_64::tables::DescriptorTablePointer;
 use crate::util::address::VirtualAddress;
 use core::mem::size_of;
@@ -20,7 +20,7 @@ pub struct InterruptDescriptorTable {
     pub invalid_tss: GateDescriptor<Isr>,
     pub segment_not_present: GateDescriptor<Isr>,
     pub stack_segment_fault: GateDescriptor<Isr>,
-    pub general_protection_fault: GateDescriptor<Isr>,
+    pub general_protection_fault: GateDescriptor<ErrorIsr>,
     pub page_fault: GateDescriptor<PageFaultIsr>,
     pub reserved_1: GateDescriptor<Isr>,
     pub x87_floating_point: GateDescriptor<Isr>,

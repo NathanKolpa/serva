@@ -119,7 +119,7 @@ impl<A> NormalSegment<A> {
 impl NormalSegment<UserAccessByte> {
     pub const NULL: Self = NormalSegment::new(0, 0, false, false, false, UserAccessByte::NULL);
 
-    pub const KERNEL_CODE64: Self = Self::new(
+    pub const KERNEL_CODE: Self = Self::new(
         0,
         0xFFFFF,
         true,
@@ -147,7 +147,7 @@ impl NormalSegment<UserAccessByte> {
         ),
     );
 
-    pub const USER_CODE64: Self = Self::new(
+    pub const USER_CODE: Self = Self::new(
         0,
         0xFFFFF,
         true,
@@ -264,7 +264,7 @@ mod tests {
 
     #[test_case]
     fn test_kernel_code64_segment() {
-        let segment = NormalSegment::KERNEL_CODE64;
+        let segment = NormalSegment::KERNEL_CODE;
         let binary_value = segment.as_u64();
         assert_eq!(binary_value, 0xaf9a000000ffff);
     }
@@ -278,7 +278,7 @@ mod tests {
 
     #[test_case]
     fn test_user_code_segment() {
-        let segment = NormalSegment::USER_CODE64;
+        let segment = NormalSegment::USER_CODE;
         let binary_value = segment.as_u64();
         assert_eq!(binary_value, 0xaffa000000ffff);
     }

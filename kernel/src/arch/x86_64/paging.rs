@@ -20,6 +20,10 @@ impl PageTableEntryFlags {
         self.set_flag(1, enabled)
     }
 
+    pub fn set_user_accessible(&mut self, enabled: bool) {
+        self.set_flag(2, enabled)
+    }
+
     fn set_flag(&mut self, bit: u64, enabled: bool) {
         if enabled {
             self.value |= 1 << bit;
@@ -54,6 +58,10 @@ impl PageTableEntryFlags {
 
     pub fn huge(&self) -> bool {
         self.value & (1 << 7) != 0
+    }
+
+    pub fn user_accessible(&self) -> bool {
+        self.value & (1 << 2) != 0
     }
 }
 
@@ -121,6 +129,7 @@ impl Debug for PageTableEntryFlags {
             .field("dirty", &self.dirty())
             .field("global", &self.global())
             .field("noexec", &self.noexec())
+            .field("user_accessible", &self.user_accessible())
             .finish()
     }
 }
@@ -232,6 +241,11 @@ impl Page<PhysicalAddressMarker> {
         let addr = PhysicalAddress::new(value & 0x_000f_ffff_ffff_f000);
 
         (Self::new(addr, PageSize::Size4Kib), (value & 0xFFF) as u16)
+    }
+
+    pub unsafe fn make_active(&self) {
+        let addr = self.addr.as_u64(); // TODO: flags are also used idk
+        asm!("mov cr3, {}", in(reg) addr, options(nostack, preserves_flags));
     }
 }
 

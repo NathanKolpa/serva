@@ -38,4 +38,8 @@ impl SegmentSelector {
         options(preserves_flags),
         );
     }
+
+    pub fn as_u16(&self) -> u16 {
+        self.value
+    }
 }

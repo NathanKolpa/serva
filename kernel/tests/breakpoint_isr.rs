@@ -22,9 +22,7 @@ lazy_static! {
         let mut table = GlobalDescriptorTable::new();
 
         let kernel_code = table
-            .add_entry(SegmentDescriptor::NormalSegment(
-                NormalSegment::KERNEL_CODE64,
-            ))
+            .add_entry(SegmentDescriptor::NormalSegment(NormalSegment::KERNEL_CODE))
             .unwrap();
 
         FullGdt { table, kernel_code }

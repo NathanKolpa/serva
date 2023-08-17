@@ -4,7 +4,9 @@ use crate::arch::x86_64::paging::*;
 use crate::memory::frame_allocator::{BootInfoFrameAllocator, FrameAllocator};
 use crate::memory::mapper::*;
 use crate::memory::MemoryInfo;
-use crate::util::sync::{Expected, SpinRwLock};
+use crate::util::address::{PhysicalAddress, VirtualAddress};
+use crate::util::sync::SpinRwLock;
+use crate::util::Expected;
 
 pub struct GlobalMemoryMapper<A, M> {
     frame_allocator: A,
@@ -22,7 +24,33 @@ where
     A: FrameAllocator,
     M: MemoryMapper,
 {
-    fn new_map(
+    pub fn translate_virtual_to_physical(&self, addr: VirtualAddress, l4_page_table: Option<PhysicalPage>) -> Option<PhysicalAddress> {
+        self.memory_mapper.translate_virtual_to_physical(addr, l4_page_table)
+    }
+
+    pub fn new_l4_page_table(&mut self, with_entries_from: Option<PhysicalPage>) -> Result<PhysicalPage, NewMappingError> {
+        self.memory_mapper.new_l4_page_table(&self.frame_allocator, with_entries_from)
+    }
+
+    pub unsafe fn map_to(
+        &mut self,
+        flags: PageTableEntryFlags,
+        parent_flags: PageTableEntryFlags,
+        new_page: VirtualPage,
+        frame: PhysicalPage,
+        l4_page_table: Option<PhysicalPage>,
+    ) -> Result<(), NewMappingError> {
+        self.memory_mapper.map_to(
+            &self.frame_allocator,
+            flags,
+            parent_flags,
+            new_page,
+            frame,
+            l4_page_table,
+        )
+    }
+
+    pub fn new_map(
         &mut self,
         flags: PageTableEntryFlags,
         parent_flags: PageTableEntryFlags,

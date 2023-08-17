@@ -15,13 +15,17 @@ impl InterruptStackRef {
         }
     }
 
-    pub fn from_stack(stack: &'static mut [u8]) -> Self {
+    pub fn from_slice(stack: &'static mut [u8]) -> Self {
         let start = stack.as_ptr() as u64;
         let end = start + stack.len() as u64;
 
         Self {
             addr: VirtualAddress::new(end),
         }
+    }
+
+    pub fn stack_end(&self) -> VirtualAddress {
+        self.addr
     }
 }
 

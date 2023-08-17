@@ -2,6 +2,7 @@ use core::mem::size_of;
 
 use crate::arch::x86_64::segmentation::segment::*;
 use crate::arch::x86_64::segmentation::selector::SegmentSelector;
+use crate::arch::x86_64::segmentation::TaskStateSegment;
 use crate::arch::x86_64::tables::DescriptorTablePointer;
 use crate::arch::x86_64::PrivilegeLevel;
 use crate::util::address::VirtualAddress;
@@ -13,6 +14,15 @@ pub enum SegmentDescriptor {
 }
 
 impl SegmentDescriptor {
+    pub const KERNEL_CODE: Self = SegmentDescriptor::NormalSegment(NormalSegment::KERNEL_CODE);
+    pub const KERNEL_DATA: Self = SegmentDescriptor::NormalSegment(NormalSegment::KERNEL_DATA);
+    pub const USER_CODE: Self = SegmentDescriptor::NormalSegment(NormalSegment::USER_CODE);
+    pub const USER_DATA: Self = SegmentDescriptor::NormalSegment(NormalSegment::USER_DATA);
+
+    pub fn new_tss(tss: &'static TaskStateSegment) -> Self {
+        Self::LongSystemSegment(LongSegment::new_tss(tss))
+    }
+
     pub fn privilege(&self) -> PrivilegeLevel {
         match self {
             SegmentDescriptor::NormalSegment(s) => s.privilege(),

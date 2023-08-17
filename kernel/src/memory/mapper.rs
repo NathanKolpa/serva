@@ -14,9 +14,11 @@ pub enum NewMappingError {
 
 pub trait MemoryMapper {
     /// Get the physical address from a virtual address.
-    fn translate_physical_to_virtual(&self, addr: VirtualAddress) -> Option<PhysicalAddress>;
+    fn translate_virtual_to_physical(&self, addr: VirtualAddress, l4_page_table: Option<PhysicalPage>) -> Option<PhysicalAddress>;
 
-    /// Creates a new mapping in the page table to the specified physical memory.
+    fn new_l4_page_table(&self, allocator: &impl FrameAllocator, with_entries_from: Option<PhysicalPage>) -> Result<PhysicalPage, NewMappingError>;
+
+        /// Creates a new mapping in the page table to the specified physical memory.
     unsafe fn map_to(
         &mut self,
         allocator: &impl FrameAllocator,

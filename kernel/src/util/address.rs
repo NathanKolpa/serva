@@ -4,13 +4,13 @@ use core::{
     ops::Add,
 };
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtualAddressMarker {}
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysicalAddressMarker {}
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[repr(C)]
 pub struct Address<L> {
     addr: u64,
