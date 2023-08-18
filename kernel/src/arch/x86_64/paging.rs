@@ -8,6 +8,10 @@ pub struct PageTableEntryFlags {
 }
 
 impl PageTableEntryFlags {
+    pub fn contains(&self, other: Self) -> bool {
+        (self.value & other.value) == self.value
+    }
+
     pub fn set_present(&mut self, enabled: bool) {
         self.set_flag(0, enabled)
     }
@@ -215,6 +219,10 @@ impl<A: Copy> Page<A> {
 
     pub fn size(&self) -> PageSize {
         self.size
+    }
+
+    pub fn end_addr(&self) -> Address<A> {
+        Address::new(self.addr.as_u64() + self.size.as_bytes())
     }
 }
 

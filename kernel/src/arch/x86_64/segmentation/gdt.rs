@@ -7,6 +7,7 @@ use crate::arch::x86_64::tables::DescriptorTablePointer;
 use crate::arch::x86_64::PrivilegeLevel;
 use crate::util::address::VirtualAddress;
 
+#[derive(Debug)]
 pub enum SegmentDescriptor {
     NormalSegment(NormalSegment<UserAccessByte>),
     NormalSystemSegment(NormalSegment<SystemAccessByte>),

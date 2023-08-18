@@ -1,11 +1,12 @@
+use core::arch::asm;
 use core::mem::transmute;
-use core::ops::Deref;
+use core::ops::{Add, Deref};
 
 use bootloader::BootInfo;
 
 use crate::arch::x86_64::init::GDT;
 use crate::arch::x86_64::paging::{Page, PageSize, PageTableEntryFlags, PhysicalPage, VirtualPage};
-use crate::arch::x86_64::segmentation::InterruptStackRef;
+use crate::arch::x86_64::segmentation::{InterruptStackRef, SegmentDescriptor, NormalSegment};
 use crate::arch::x86_64::trampoline::enter_ring3;
 use crate::arch::x86_64::{halt, init_x86_64, ARCH_NAME};
 use crate::debug::DEBUG_CHANNEL;
@@ -31,10 +32,7 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
 }
 
 fn user_mode_test() {
-    let mut user_table_parent_flags = PageTableEntryFlags::default();
-    user_table_parent_flags.set_present(true);
-    user_table_parent_flags.set_writable(true);
-    user_table_parent_flags.set_user_accessible(true);
+    debug_println!("User data {:?}", NormalSegment::USER_DATA.as_u64());
 
     let mut user_table_flags = PageTableEntryFlags::default();
     user_table_flags.set_present(true);
@@ -47,62 +45,46 @@ fn user_mode_test() {
         .new_l4_page_table(Some(PhysicalPage::active().0))
         .unwrap();
 
-    let user_fn_in_kernel = VirtualAddress::new(user_mode_function as *const fn() as u64);
-    let user_fn_in_phys = memory_mapper
-        .translate_virtual_to_physical(user_fn_in_kernel, None)
+    let user_fn_virt = VirtualAddress::new(user_mode_function as *const () as u64);
+    memory_mapper.update_flags(user_table_flags, user_fn_virt, Some(user_page_table));
+    debug_println!("user_fn_virt: {user_fn_virt:?}");
+
+    let stack_page = VirtualPage::new(VirtualAddress::new(0x800000), PageSize::Size4Kib);
+    let stack_addr = stack_page.addr().add(100);
+
+    memory_mapper
+        .new_map(
+            user_table_flags,
+            user_table_flags,
+            stack_page,
+            Some(user_page_table),
+        )
         .unwrap();
 
-    debug_println!("user_fn_in_kernel: {user_fn_in_kernel:?}");
-    debug_println!("user_fn_in_phys: {user_fn_in_phys:?}");
 
-    let user_fn_virt_page = VirtualPage::new(VirtualAddress::new(0x1600000), PageSize::Size4Kib);
-    let user_fn_phys_page = PhysicalPage::new(user_fn_in_phys, PageSize::Size4Kib);
-    let user_fn_ptr_offset_from_page = user_fn_in_phys.as_u64() - user_fn_phys_page.addr().as_u64();
-    let user_fn_in_user_virt =
-        VirtualAddress::new(user_fn_virt_page.addr().as_u64() + user_fn_ptr_offset_from_page);
-
-    debug_println!(
-        "Mapping {:?} to {:?}",
-        user_fn_virt_page.addr(),
-        user_fn_phys_page.addr()
-    );
-    debug_println!("user_fn_in_phys offset from page: {user_fn_ptr_offset_from_page}");
-    debug_println!("user_fn_in_user_virt: {user_fn_in_user_virt:?}");
-
-    unsafe {
-        memory_mapper
-            .map_to(
-                user_table_flags,
-                user_table_parent_flags,
-                user_fn_virt_page,
-                user_fn_phys_page,
-                Some(user_page_table),
-            )
-            .unwrap();
-    }
-
-    let user_fn_in_phys_from_user_table = memory_mapper
-        .translate_virtual_to_physical(user_fn_in_user_virt, Some(user_page_table))
-        .unwrap();
-    debug_println!("user_fn_in_phys_from_user_table: {user_fn_in_phys_from_user_table:?}");
+    debug_println!("stack_page: {:?}", stack_page.addr());
 
     debug_println!("Setting user page active");
 
+    debug_println!("User DS: {:?}", GDT.user_data);
+    debug_println!("User CS: {:?}", GDT.user_code);
+
     unsafe {
         user_page_table.make_active();
+
+        enter_ring3(
+            user_fn_virt,
+            stack_addr,
+            GDT.user_code,
+            GDT.user_data,
+        );
     }
-
-    debug_println!("Still works!");
-
-    let user_fn: fn() = unsafe { transmute(user_fn_in_user_virt.as_u64()) };
-    debug_println!(
-        "user_fn_in_user: {:?}",
-        VirtualAddress::new(user_fn as *const fn() as u64)
-    );
-
-    user_fn();
 }
 
-fn user_mode_function() -> ! {
-    loop {}
+fn user_mode_function() {
+    unsafe {
+        asm!("nop");
+        asm!("nop");
+        asm!("nop");
+    }
 }

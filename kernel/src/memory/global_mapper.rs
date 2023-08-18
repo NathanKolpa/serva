@@ -32,6 +32,10 @@ where
         self.memory_mapper.new_l4_page_table(&self.frame_allocator, with_entries_from)
     }
 
+    pub fn update_flags(&mut self, flags: PageTableEntryFlags, address: VirtualAddress, l4_page_table: Option<PhysicalPage>) {
+        self.memory_mapper.update_flags(flags, address, l4_page_table)
+    }
+
     pub unsafe fn map_to(
         &mut self,
         flags: PageTableEntryFlags,

@@ -1,4 +1,5 @@
 use core::arch::asm;
+use core::fmt::{Debug, Formatter};
 
 use crate::arch::x86_64::privilege::PrivilegeLevel;
 
@@ -39,7 +40,35 @@ impl SegmentSelector {
         );
     }
 
+    pub unsafe fn load_into_ds(&self) {
+        let value = self.value;
+        asm!("mov ds, {0:x}", in(reg) self.value, options(nostack, preserves_flags));
+    }
+
+    pub unsafe fn load_into_ss(&self) {
+        let value = self.value;
+        asm!("mov ss, {0:x}", in(reg) self.value, options(nostack, preserves_flags));
+    }
+
+    pub fn index(&self) -> u16 {
+        self.value >> 3
+    }
+
+    pub fn privilege(&self) -> PrivilegeLevel {
+        let bits = self.value & 3;
+        PrivilegeLevel::from(bits as u8)
+    }
+
     pub fn as_u16(&self) -> u16 {
         self.value
+    }
+}
+
+impl Debug for SegmentSelector {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("SegmentSelector")
+            .field("index", &self.index())
+            .field("privilege", &self.privilege())
+            .finish()
     }
 }

@@ -153,6 +153,27 @@ impl MemoryMapper for PhysicalMemoryMapper {
         Ok(new_frame)
     }
 
+    fn update_flags(&mut self, flags: PageTableEntryFlags, address: VirtualAddress, l4_page_table: Option<PhysicalPage>) {
+        let mut frame = l4_page_table.unwrap_or_else(|| PhysicalPage::active().0);
+
+        for index in address.indices() {
+            let table_ptr: *const PageTable = self.translate_table_frame(frame.addr()).as_ptr();
+            let table = unsafe { &*table_ptr };
+            let mut entry = table.as_slice()[index as usize];
+
+            if !entry.flags().contains(flags) {
+                entry.set_flags(entry.flags() | flags);
+                table.flush();
+            }
+
+            if entry.flags().huge() {
+                break;
+            }
+
+            frame = PhysicalPage::new(entry.addr(), PageSize::Size4Kib);
+        }
+    }
+
     unsafe fn map_to(
         &mut self,
         allocator: &impl FrameAllocator,

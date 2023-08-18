@@ -3,8 +3,8 @@ use core::mem::size_of;
 use crate::arch::x86_64::segmentation::tss::TaskStateSegment;
 use crate::arch::x86_64::PrivilegeLevel;
 
-#[derive(Copy, Clone)]
 #[repr(C)]
+#[derive(Copy, Clone, Debug)]
 pub struct AccessByte {
     value: u8,
 }
@@ -27,7 +27,7 @@ impl AccessByte {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct UserAccessByte {
     value: AccessByte,
 }
@@ -43,6 +43,7 @@ impl UserAccessByte {
         value_byte |= (executable as u8) << 3;
         value_byte |= (dc as u8) << 2;
         value_byte |= (rw as u8) << 1;
+        value_byte |= 1; // TODO: is dit nodig?
 
         Self {
             value: AccessByte { value: value_byte },
@@ -51,7 +52,7 @@ impl UserAccessByte {
 }
 
 #[repr(u8)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum SystemAccessByteKind {
     LDT = 0x2,
     TssAvailable16Bit = 0x1,
@@ -61,7 +62,7 @@ pub enum SystemAccessByteKind {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct SystemAccessByte {
     value: AccessByte,
 }
@@ -78,7 +79,7 @@ impl SystemAccessByte {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct NormalSegment<A> {
     limit: u16,
     base: u16,
@@ -197,7 +198,7 @@ impl NormalSegment<SystemAccessByte> {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct LongSegment {
     flags: NormalSegment<SystemAccessByte>,
     higher_base: u32,

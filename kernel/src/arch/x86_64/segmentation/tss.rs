@@ -33,7 +33,7 @@ impl InterruptStackRef {
 #[repr(C, packed(4))]
 pub struct TaskStateSegment {
     _reserved_1: u32,
-    privilege_stack_table: [VirtualAddress; 3],
+    pub privilege_stack_table: [InterruptStackRef; 3],
     _reserved_2: u64,
     pub interrupt_stack_table: [InterruptStackRef; 7],
     _reserved_3: u64,
@@ -45,7 +45,7 @@ impl TaskStateSegment {
     pub const fn new() -> Self {
         TaskStateSegment {
             _reserved_1: 0,
-            privilege_stack_table: [VirtualAddress::new(0); 3],
+            privilege_stack_table: [InterruptStackRef::new(); 3],
             _reserved_2: 0,
             interrupt_stack_table: [InterruptStackRef::new(); 7],
             _reserved_3: 0,

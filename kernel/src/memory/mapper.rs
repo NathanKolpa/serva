@@ -18,6 +18,8 @@ pub trait MemoryMapper {
 
     fn new_l4_page_table(&self, allocator: &impl FrameAllocator, with_entries_from: Option<PhysicalPage>) -> Result<PhysicalPage, NewMappingError>;
 
+    fn update_flags(&mut self, flags: PageTableEntryFlags, address: VirtualAddress, l4_page_table: Option<PhysicalPage>);
+
         /// Creates a new mapping in the page table to the specified physical memory.
     unsafe fn map_to(
         &mut self,
