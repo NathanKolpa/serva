@@ -164,14 +164,6 @@ impl<const SIZE: usize> PageTable<SIZE> {
         &mut self.entries
     }
 
-    pub fn flush(&self) {
-        let addr = self as *const Self as u64;
-
-        unsafe {
-            asm!("invlpg [{}]", in(reg) addr, options(nostack, preserves_flags));
-        }
-    }
-
     pub fn zero(&mut self) {
         for entry in self.entries.iter_mut() {
             *entry = PageTableEntry::default()
@@ -256,6 +248,14 @@ impl Page<PhysicalAddressMarker> {
     pub unsafe fn make_active(&self) {
         let addr = self.addr.as_u64(); // TODO: flags are also used idk
         asm!("mov cr3, {}", in(reg) addr, options(nostack, preserves_flags));
+    }
+
+    pub fn flush(&self) {
+        let addr = self as *const Self as u64;
+
+        unsafe {
+            asm!("invlpg [{}]", in(reg) addr, options(nostack, preserves_flags));
+        }
     }
 }
 

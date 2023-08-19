@@ -1,8 +1,8 @@
-pub use global_mapper::{init_memory_mapper, GlobalMemoryMapper, MEMORY_MAPPER};
-pub use info::MemoryInfo;
-pub use mapper::NewMappingError;
-
 mod frame_allocator;
-mod global_mapper;
 mod info;
 mod mapper;
+mod flush;
+
+pub use frame_allocator::*;
+pub use info::*;
+pub use mapper::*;
