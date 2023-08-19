@@ -4,8 +4,8 @@ use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 
 use crate::arch::x86_64::paging::{PageSize, PhysicalPage};
 use crate::memory::MemoryInfo;
-use crate::util::sync::SpinRwLock;
 use crate::util::Expected;
+use crate::util::sync::{SpinOnce, SpinRwLock};
 
 const SIZE: PageSize = PageSize::Size4Kib;
 

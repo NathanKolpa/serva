@@ -1,6 +1,7 @@
+use spin::Mutex;
 use crate::arch::x86_64::port::{Port, ReadOnly, ReadWrite, WriteOnly};
+use crate::util::Singleton;
 use crate::util::sync::SpinMutex;
-use lazy_static::lazy_static;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -115,10 +116,10 @@ impl Uart16550 {
     }
 }
 
-lazy_static! {
-    pub static ref SERIAL: SpinMutex<Uart16550> = {
-        let mut serial = SpinMutex::new(unsafe { Uart16550::new(0x3F8) });
-        serial.get_mut().init();
-        serial
-    };
+fn init_serial() -> Mutex<Uart16550> {
+    let mut serial = SpinMutex::new(unsafe { Uart16550::new(0x3F8) });
+    serial.get_mut().init();
+    serial
 }
+
+pub static SERIAL: Singleton<SpinMutex<Uart16550>> = Singleton::new(init_serial);

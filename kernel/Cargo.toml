@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 bootloader = { version = "0.9.23", features = ["map_physical_memory"] }
 spin = "0.9.8"
-lazy_static = { version = "1", features = ["spin_no_std"] }
 
 [package.metadata.bootimage]
 run-args = [

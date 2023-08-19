@@ -105,30 +105,6 @@ impl MemoryMapper {
         })
     }
 
-    fn update_flags(&mut self, flags: PageTableEntryFlags, address: VirtualAddress) -> impl TableCacheFlush {
-        let mut cache_flush = TableListCacheFlush::new();
-        let mut frame = self.l4_page;
-
-        for index in address.indices() {
-            let table_ptr: *mut PageTable = self.translate_table_frame(frame.addr()).as_mut_ptr();
-            let table = unsafe { &mut *table_ptr };
-            let entry = &mut table.as_mut_slice()[index as usize];
-
-            if !entry.flags().contains(flags) {
-                entry.set_flags(entry.flags() | flags);
-                cache_flush.add_table(frame);
-            }
-
-            if entry.flags().huge() {
-                break;
-            }
-
-            frame = PhysicalPage::new(entry.addr(), PageSize::Size4Kib);
-        }
-
-        cache_flush
-    }
-
     fn map_to_inner(
         &mut self,
         flags: PageTableEntryFlags,

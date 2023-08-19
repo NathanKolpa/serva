@@ -1,6 +1,6 @@
 use crate::tasks::task::Task;
+use crate::util::collections::FixedVec;
 use crate::util::sync::SpinMutex;
-use crate::util::FixedVec;
 
 // tegen het advies van Remco in, schrijf ik toch mijn eigen scheduler.
 
