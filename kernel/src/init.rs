@@ -12,7 +12,7 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     init_x86_64();
 
-    let memory_mapper = unsafe {
+    let _memory_mapper = unsafe {
         FRAME_ALLOCATOR.init(&boot_info.memory_map);
         MemoryMapper::new(&FRAME_ALLOCATOR, PhysicalPage::active().0, boot_info.physical_memory_offset)
     };

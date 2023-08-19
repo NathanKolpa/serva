@@ -1,7 +1,6 @@
-use core::marker::PhantomData;
 use core::ops::Deref;
 
-use crate::util::sync::{SpinMutex, SpinOnce};
+use crate::util::sync::{SpinOnce};
 
 pub struct Singleton<T> {
     value: SpinOnce<T>,

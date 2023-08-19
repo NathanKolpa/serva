@@ -41,12 +41,12 @@ impl SegmentSelector {
     }
 
     pub unsafe fn load_into_ds(&self) {
-        let value = self.value;
+        let _value = self.value;
         asm!("mov ds, {0:x}", in(reg) self.value, options(nostack, preserves_flags));
     }
 
     pub unsafe fn load_into_ss(&self) {
-        let value = self.value;
+        let _value = self.value;
         asm!("mov ss, {0:x}", in(reg) self.value, options(nostack, preserves_flags));
     }
 
