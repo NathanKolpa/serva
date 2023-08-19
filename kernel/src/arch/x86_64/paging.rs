@@ -1,15 +1,16 @@
 use core::{arch::asm, fmt::Debug};
+use crate::debug_println;
 
 use crate::util::address::*;
 
 #[derive(Clone, Copy, Default)]
 pub struct PageTableEntryFlags {
-    value: u64,
+    pub value: u64,
 }
 
 impl PageTableEntryFlags {
     pub fn contains(&self, other: Self) -> bool {
-        (self.value & other.value) == self.value
+        (self.value & other.value) == other.value
     }
 
     pub fn set_present(&mut self, enabled: bool) {
@@ -106,7 +107,7 @@ impl PageTableEntry {
     }
 
     pub fn flags(&self) -> PageTableEntryFlags {
-        PageTableEntryFlags { value: self.value }
+        PageTableEntryFlags { value: self.value & !(Self::ADDR_MASK) }
     }
 
     pub fn addr(&self) -> PhysicalAddress {
