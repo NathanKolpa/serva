@@ -3,7 +3,7 @@ use core::arch::asm;
 use crate::arch::x86_64::segmentation::SegmentSelector;
 use crate::util::address::VirtualAddress;
 
-pub unsafe fn enter_ring3(
+pub unsafe fn return_from_interrupt(
     code: VirtualAddress,
     stack_end: VirtualAddress,
     code_segment: SegmentSelector,
@@ -17,7 +17,7 @@ pub unsafe fn enter_ring3(
     asm!(
         "push rax",  // stack segment
         "push rsi",    // rsp
-        "push 0x200",           // rflags (only interrupt bit set)
+        "pushf",           // rflags (only interrupt bit set)
         "push rdx",   // code segment
         "push rdi",      // ret to virtual addr
         "iretq",

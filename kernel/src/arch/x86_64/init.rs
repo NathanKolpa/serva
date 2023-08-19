@@ -4,6 +4,7 @@ use crate::arch::x86_64::interrupts::{
     InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
 };
 use crate::arch::x86_64::segmentation::*;
+use crate::util::address::VirtualAddress;
 
 const DOUBLE_FAULT_IST_INDEX: usize = 0;
 
@@ -67,7 +68,16 @@ extern "x86-interrupt" fn page_fault_handler(
     _frame: InterruptStackFrame,
     error_code: PageFaultErrorCode,
 ) {
-    panic!("Page fault interrupt {error_code:?}")
+    let addr: u64;
+
+    unsafe {
+        core::arch::asm!("mov {}, cr2", out(reg) addr, options(nomem, nostack, preserves_flags));
+    }
+
+    let addr = VirtualAddress::new(addr);
+
+
+    panic!("Page fault interrupt at {addr:?} because {error_code:?}")
 }
 
 lazy_static! {

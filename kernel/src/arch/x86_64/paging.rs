@@ -148,6 +148,7 @@ impl Debug for PageTableEntry {
 }
 
 #[repr(align(4096))]
+#[derive(Debug)]
 #[repr(C)]
 pub struct PageTable<const SIZE: usize = 512> {
     entries: [PageTableEntry; SIZE],

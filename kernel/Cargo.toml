@@ -7,10 +7,11 @@ edition = "2021"
 bootloader = { version = "0.9.23", features = ["map_physical_memory"] }
 spin = "0.9.8"
 lazy_static = { version = "1", features = ["spin_no_std"] }
+x86_64 = "0.14.10"
 
 [package.metadata.bootimage]
 run-args = [
-    "-S", "-gdb", "tcp::1234",
+#    "-S", "-gdb", "tcp::1234",
     "-serial", "stdio",
     "-display", "none"
 ]

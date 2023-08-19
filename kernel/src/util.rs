@@ -7,5 +7,6 @@ pub mod display;
 mod expected;
 mod fixed_vec;
 pub mod sync;
+mod singleton;
 
 pub use fixed_vec::FixedVec;
