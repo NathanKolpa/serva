@@ -36,7 +36,7 @@ pub struct InterruptDescriptorTable {
 }
 
 impl InterruptDescriptorTable {
-    const STANDARD_INTERRUPTS_COUNT: usize = 32;
+    pub const STANDARD_INTERRUPTS_COUNT: usize = 32;
     const USER_INTERRUPTS_COUNT: usize = 256 - Self::STANDARD_INTERRUPTS_COUNT;
 
     pub const fn new() -> Self {

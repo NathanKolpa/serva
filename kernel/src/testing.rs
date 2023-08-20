@@ -1,7 +1,7 @@
 use core::panic::PanicInfo;
 
-use crate::arch::x86_64::halt;
-use crate::devices::qemu::{ExitCode, QEMU_DEVICE};
+use crate::arch::x86_64::halt_loop;
+use crate::arch::x86_64::devices::qemu::{ExitCode, QEMU_DEVICE};
 
 pub trait TestCase {
     fn run(&self);
@@ -32,14 +32,14 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     debug_println!("[failed]\n");
     debug_println!("Error: {}\n", info);
     QEMU_DEVICE.lock().exit(ExitCode::Failed);
-    halt()
+    halt_loop()
 }
 
 #[cfg(test)]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     crate::test_main();
-    halt()
+    halt_loop()
 }
 
 #[cfg(test)]

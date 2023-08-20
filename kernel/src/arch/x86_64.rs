@@ -3,6 +3,7 @@ pub use init::init_x86_64;
 pub use instructions::*;
 pub use privilege::PrivilegeLevel;
 
+pub mod constants;
 pub mod init;
 mod instructions;
 pub mod interrupts;
@@ -12,5 +13,6 @@ mod privilege;
 pub mod segmentation;
 pub mod tables;
 pub mod trampoline;
+pub mod devices;
 
 pub const ARCH_NAME: &str = "x86_64";

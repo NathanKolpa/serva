@@ -6,3 +6,4 @@ mod flush;
 pub use frame_allocator::*;
 pub use info::*;
 pub use mapper::*;
+pub use flush::*;

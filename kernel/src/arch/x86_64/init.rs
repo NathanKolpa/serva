@@ -1,7 +1,13 @@
+use core::mem::MaybeUninit;
+
+use crate::arch::x86_64::constants::TICK_INTERRUPT_INDEX;
 use crate::arch::x86_64::interrupts::{
     InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
 };
 use crate::arch::x86_64::segmentation::*;
+use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
+use crate::arch::x86_64::halt_loop;
+use crate::debug_println;
 use crate::util::address::VirtualAddress;
 use crate::util::Singleton;
 
@@ -12,11 +18,6 @@ fn init_tss() -> TaskStateSegment {
     static mut STACK: [u8; 4096] = [0; 4096];
     tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX] =
         InterruptStackRef::from_slice(unsafe { &mut STACK });
-
-    static mut PRIV_STACK: [u8; 4096] = [0; 4096];
-
-    tss.privilege_stack_table[0] = InterruptStackRef::from_slice(unsafe { &mut PRIV_STACK });
-
     tss
 }
 
@@ -36,9 +37,9 @@ fn init_gdt() -> FullGdt {
 
     let kernel_code = table.add_entry(SegmentDescriptor::KERNEL_CODE).unwrap();
     let kernel_data = table.add_entry(SegmentDescriptor::KERNEL_DATA).unwrap();
+    let tss = table.add_entry(SegmentDescriptor::new_tss(&TSS)).unwrap();
     let user_data = table.add_entry(SegmentDescriptor::USER_DATA).unwrap();
     let user_code = table.add_entry(SegmentDescriptor::USER_CODE).unwrap();
-    let tss = table.add_entry(SegmentDescriptor::new_tss(&TSS)).unwrap();
 
     FullGdt {
         table,
@@ -53,7 +54,7 @@ fn init_gdt() -> FullGdt {
 pub static GDT: Singleton<FullGdt> = Singleton::new(init_gdt);
 
 extern "x86-interrupt" fn double_fault_handler(frame: InterruptStackFrame, error_code: u64) -> ! {
-    panic!("Double fault interrupt {error_code} {frame:?}")
+    panic!("Double fault: {error_code} {frame:?}")
 }
 
 extern "x86-interrupt" fn general_protection_fault_handler(
@@ -75,7 +76,11 @@ extern "x86-interrupt" fn page_fault_handler(
 
     let addr = VirtualAddress::new(addr);
 
-    panic!("Page fault interrupt at {addr:?} because {error_code:?}")
+    debug_println!("Page fault interrupt at {addr:?} because {error_code:?}")
+}
+
+extern "x86-interrupt" fn tick(_: InterruptStackFrame) {
+    PIC_CHAIN.lock().end_of_interrupt(TICK_INTERRUPT_INDEX as u8);
 }
 
 fn init_idt() -> InterruptDescriptorTable {
@@ -95,6 +100,7 @@ fn init_idt() -> InterruptDescriptorTable {
         .set_handler(kernel_segment, page_fault_handler);
     idt.double_fault.set_stack_index(DOUBLE_FAULT_IST_INDEX); // TODO
 
+    idt[TICK_INTERRUPT_INDEX].set_handler(kernel_segment, tick);
 
     idt
 }

@@ -1,9 +1,9 @@
 #![macro_use]
 
-use crate::arch::x86_64::interrupts::atomic_block;
 use core::fmt::Write;
 
-use crate::devices::uart_16550::SERIAL;
+use crate::arch::x86_64::devices::uart_16550::SERIAL;
+use crate::arch::x86_64::interrupts::atomic_block;
 
 #[macro_export]
 macro_rules! debug_print {

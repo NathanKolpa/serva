@@ -3,7 +3,6 @@ use crate::memory::flush::{TableCacheFlush, TableListCacheFlush};
 use crate::memory::frame_allocator::FrameAllocator;
 use crate::util::address::*;
 
-
 #[derive(Debug, Clone, Copy)]
 pub enum NewMappingError {
     AlreadyMapped,
@@ -78,7 +77,35 @@ impl MemoryMapper {
         Some(frame.addr() + offset)
     }
 
-    fn new_mapper(&self, with_entries_from: Option<PhysicalPage>) -> Result<Self, NewMappingError> {
+    pub fn set_flags(
+        &mut self,
+        address: VirtualAddress,
+        flags: PageTableEntryFlags,
+    ) -> impl TableCacheFlush {
+        let mut cache_flush = TableListCacheFlush::new();
+        let mut frame = self.l4_page;
+
+        for index in address.indices() {
+            let table_ptr: *mut PageTable = self.translate_table_frame(frame.addr()).as_mut_ptr();
+            let table = unsafe { &mut *table_ptr };
+            let entry = &mut table.as_mut_slice()[index as usize];
+
+            if !entry.flags().contains(flags) {
+                entry.set_flags(entry.flags() | flags);
+                cache_flush.add_table(frame);
+            }
+
+            if entry.flags().huge() {
+                break;
+            }
+
+            frame = PhysicalPage::new(entry.addr(), PageSize::Size4Kib);
+        }
+
+        cache_flush
+    }
+
+    pub fn new_mapper(&self, inherit: bool) -> Result<Self, NewMappingError> {
         let new_frame = self
             .frame_allocator
             .allocate_new_page_table()
@@ -87,10 +114,9 @@ impl MemoryMapper {
         let table_ptr: *mut PageTable = self.translate_table_frame(new_frame.addr()).as_mut_ptr();
         let table = unsafe { &mut *table_ptr };
 
-        if let Some(with_entries_from) = with_entries_from {
-            let clone_table_ptr: *const PageTable = self
-                .translate_table_frame(with_entries_from.addr())
-                .as_ptr();
+        if inherit {
+            let clone_table_ptr: *const PageTable =
+                self.translate_table_frame(self.l4_page.addr()).as_ptr();
             let clone_table = unsafe { &*clone_table_ptr };
 
             table.as_mut_slice().copy_from_slice(clone_table.as_slice())
@@ -101,7 +127,7 @@ impl MemoryMapper {
         Ok(Self {
             l4_page: new_frame,
             frame_allocator: self.frame_allocator,
-            global_offset: self.global_offset
+            global_offset: self.global_offset,
         })
     }
 
@@ -168,7 +194,7 @@ impl MemoryMapper {
     }
 
     /// Creates a new mapping in the page table to the specified physical memory.
-    unsafe fn map_to(
+    pub unsafe fn map_to(
         &mut self,
         flags: PageTableEntryFlags,
         parent_flags: PageTableEntryFlags,
@@ -179,7 +205,7 @@ impl MemoryMapper {
     }
 
     /// Creates a new mapping in the page table.
-    fn new_map(
+    pub fn new_map(
         &mut self,
         flags: PageTableEntryFlags,
         parent_flags: PageTableEntryFlags,
@@ -191,5 +217,9 @@ impl MemoryMapper {
             .ok_or(NewMappingError::OutOfFrames)?;
 
         unsafe { self.map_to(flags, parent_flags, new_page, frame) }
+    }
+
+    pub fn l4_page(&self) -> PhysicalPage {
+        self.l4_page
     }
 }

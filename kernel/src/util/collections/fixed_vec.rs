@@ -3,7 +3,8 @@ use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::ptr::read;
 
 /// A vector with a size known at compile-time.
-/// Because the fixed size, the vector can be stored entirely on the stack and does not require an allocator.
+/// Because the fixed size, the vector can be stored entirely inline and on the stack.
+/// No allocator is thus required.
 pub struct FixedVec<const SIZE: usize, T> {
     len: usize,
     elements: [MaybeUninit<T>; SIZE],

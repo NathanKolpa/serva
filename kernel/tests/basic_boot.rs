@@ -6,13 +6,13 @@
 
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
-use kernel::arch::x86_64::halt;
+use kernel::arch::x86_64::halt_loop;
 
 entry_point!(_start);
 
 fn _start(_boot_info: &'static BootInfo) -> ! {
     test_main();
-    halt()
+    halt_loop()
 }
 
 #[panic_handler]
