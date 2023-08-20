@@ -2,6 +2,12 @@ use core::mem::size_of;
 
 use crate::util::address::VirtualAddress;
 
+/// An abstraction around stacks for interrupts.
+///
+/// # Safety
+/// Note how its safe to clone , this is due to the way interrupts treat stacks.
+///
+/// The user can also reference null stacks, this would crash the kernel but is still considered safe since no ub is caused.
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct InterruptStackRef {
@@ -9,7 +15,7 @@ pub struct InterruptStackRef {
 }
 
 impl InterruptStackRef {
-    pub const fn new() -> Self {
+    pub const fn null() -> Self {
         Self {
             addr: VirtualAddress::new(0),
         }
@@ -45,9 +51,9 @@ impl TaskStateSegment {
     pub const fn new() -> Self {
         TaskStateSegment {
             _reserved_1: 0,
-            privilege_stack_table: [InterruptStackRef::new(); 3],
+            privilege_stack_table: [InterruptStackRef::null(); 3],
             _reserved_2: 0,
-            interrupt_stack_table: [InterruptStackRef::new(); 7],
+            interrupt_stack_table: [InterruptStackRef::null(); 7],
             _reserved_3: 0,
             _reserved_4: 0,
             io_map_base: size_of::<Self>() as u16,

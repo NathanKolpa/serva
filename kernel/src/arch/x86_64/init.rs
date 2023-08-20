@@ -6,7 +6,7 @@ use crate::arch::x86_64::interrupts::{
 };
 use crate::arch::x86_64::segmentation::*;
 use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
-use crate::arch::x86_64::halt_loop;
+use crate::arch::x86_64::{halt_loop, PrivilegeLevel};
 use crate::debug_println;
 use crate::util::address::VirtualAddress;
 use crate::util::Singleton;
@@ -30,16 +30,23 @@ pub struct FullGdt {
     pub user_code: SegmentSelector,
     pub user_data: SegmentSelector,
     pub tss: SegmentSelector,
+    pub syscall: SegmentSelector,
+    pub sysret: SegmentSelector,
 }
 
 fn init_gdt() -> FullGdt {
     let mut table = GlobalDescriptorTable::new();
 
     let kernel_code = table.add_entry(SegmentDescriptor::KERNEL_CODE).unwrap();
+    // Kernel data is required by syscall to be the next entry after kernel code.
     let kernel_data = table.add_entry(SegmentDescriptor::KERNEL_DATA).unwrap();
-    let tss = table.add_entry(SegmentDescriptor::new_tss(&TSS)).unwrap();
+
+    // User data is required by sysret to the next entry after the selector.
     let user_data = table.add_entry(SegmentDescriptor::USER_DATA).unwrap();
+    // User code is required by sysret to be the next entry after user data.
     let user_code = table.add_entry(SegmentDescriptor::USER_CODE).unwrap();
+
+    let tss = table.add_entry(SegmentDescriptor::new_tss(&TSS)).unwrap();
 
     FullGdt {
         table,
@@ -48,6 +55,8 @@ fn init_gdt() -> FullGdt {
         user_code,
         user_data,
         tss,
+        syscall: SegmentSelector::new(kernel_code.index(), PrivilegeLevel::Ring0),
+        sysret: SegmentSelector::new(kernel_data.index(), PrivilegeLevel::Ring3)
     }
 }
 

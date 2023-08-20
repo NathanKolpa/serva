@@ -1,28 +1,5 @@
 use core::arch::asm;
-
-#[repr(transparent)]
-pub struct RFlags {
-    value: u64,
-}
-
-impl RFlags {
-    const INTERRUPTS_ENABLED: u64 = 1 << 9;
-
-    #[inline]
-    pub fn read() -> Self {
-        let value: u64;
-
-        unsafe {
-            asm!("pushfq; pop {}", out(reg) value, options(nomem, preserves_flags));
-        }
-
-        Self { value }
-    }
-
-    pub fn interrupts_enabled(&self) -> bool {
-        self.value & Self::INTERRUPTS_ENABLED != 0
-    }
-}
+use crate::arch::x86_64::RFlags;
 
 #[inline]
 pub fn enable_interrupts() {

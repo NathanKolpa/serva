@@ -1,10 +1,11 @@
 use bootloader::BootInfo;
 
-use crate::arch::x86_64::paging::PhysicalPage;
-use crate::arch::x86_64::{halt_loop, init_x86_64, ARCH_NAME};
-use crate::debug::DEBUG_CHANNEL;
 use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
 use crate::arch::x86_64::interrupts::enable_interrupts;
+use crate::arch::x86_64::paging::PhysicalPage;
+use crate::arch::x86_64::syscalls::SyscallArgs;
+use crate::arch::x86_64::{halt_loop, init_x86_64, RFlags, ARCH_NAME};
+use crate::debug::DEBUG_CHANNEL;
 use crate::memory::{MemoryMapper, FRAME_ALLOCATOR};
 
 pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
@@ -32,16 +33,19 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     halt_loop()
 }
 
-
 fn test_syscall(mut memory_map: MemoryMapper) {
-    use crate::memory::TableCacheFlush;
-    use crate::arch::x86_64::paging::*;
-    use crate::util::address::*;
-    use crate::arch::x86_64::trampoline::*;
     use crate::arch::x86_64::init::GDT;
+    use crate::arch::x86_64::paging::*;
+    use crate::arch::x86_64::syscalls::*;
+    use crate::memory::TableCacheFlush;
+    use crate::util::address::*;
 
     unsafe {
-        init_syscall();
+        init_syscalls(
+            handle_syscall,
+            GDT.syscall,
+            GDT.sysret,
+        );
     }
 
     let mut user_flags = PageTableEntryFlags::default();
@@ -53,16 +57,22 @@ fn test_syscall(mut memory_map: MemoryMapper) {
     memory_map.set_flags(user_fn_virt, user_flags).discard();
 
     let stack_page = VirtualPage::new(VirtualAddress::new(0x800000), PageSize::Size4Kib);
-    memory_map.new_map(user_flags, user_flags, stack_page).unwrap().discard();
+    memory_map
+        .new_map(user_flags, user_flags, stack_page)
+        .unwrap()
+        .discard();
 
     unsafe {
         memory_map.l4_page().make_active();
+
+        enable_interrupts();
 
         return_from_interrupt(
             user_fn_virt,
             stack_page.end_addr(),
             GDT.user_code,
-            GDT.user_data
+            GDT.user_data,
+            RFlags::NONE,
         )
     }
 }
@@ -71,13 +81,18 @@ extern "C" fn user_mode_function() {
     loop {
         unsafe {
             core::arch::asm!(
-                "mov rax, 0xCA11",
-                "mov rdi, 10",
-                "mov rsi, 20",
-                "mov rdx, 30",
-                "mov r10, 40",
+                "mov rax, 1",
+                "mov rdi, 2",
+                "mov rsi, 3",
+                "mov rdx, 4",
+                "mov r10, 5",
                 "syscall"
             )
         }
     }
+}
+
+fn handle_syscall(args: SyscallArgs) -> u64 {
+    debug_println!("{args:?}");
+    0
 }
