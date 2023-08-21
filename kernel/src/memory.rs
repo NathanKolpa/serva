@@ -1,3 +1,5 @@
+//! Code to help with managing memory in the kernel.
+
 mod frame_allocator;
 mod info;
 mod mapper;

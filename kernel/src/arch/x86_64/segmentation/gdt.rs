@@ -80,6 +80,7 @@ impl GlobalDescriptorTable {
         Some(SegmentSelector::new(index as u16, descriptor.privilege()))
     }
 
+    /// Load the table using the `lgdt` instruction.
     pub fn load(&'static self) {
         let pointer = self.pointer();
 
@@ -89,9 +90,9 @@ impl GlobalDescriptorTable {
     }
 
     fn pointer(&self) -> DescriptorTablePointer {
-        DescriptorTablePointer {
-            base: VirtualAddress::new(self as *const _ as u64),
-            limit: (self.len * size_of::<u64>() - 1) as u16,
-        }
+        DescriptorTablePointer::new(
+            (self.len * size_of::<u64>() - 1) as u16,
+            VirtualAddress::from(self as *const _),
+        )
     }
 }

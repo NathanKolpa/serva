@@ -1,3 +1,5 @@
+//! Macro's to help with debugging, aka serial printing.
+
 #![macro_use]
 
 use core::fmt::Write;

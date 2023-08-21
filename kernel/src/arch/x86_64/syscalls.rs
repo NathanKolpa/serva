@@ -55,7 +55,7 @@ pub struct SyscallArgs {
 static mut SYSCALL_HANDLER: MaybeUninit<fn(SyscallArgs) -> u64> = MaybeUninit::uninit();
 
 #[no_mangle]
-unsafe extern "C" fn syscall_handler() {
+unsafe extern "C" fn syscall_handler_inner() {
     let syscall: u64;
     let arg0: u64;
     let arg1: u64;
@@ -89,7 +89,8 @@ unsafe extern "C" fn syscall_handler() {
 }
 
 #[naked]
-fn naked_syscall_handler() {
+#[no_mangle]
+extern "C" fn naked_syscall_handler() {
     unsafe {
         asm!(
             // save for return
@@ -103,7 +104,7 @@ fn naked_syscall_handler() {
             "push r14",
             "push r15",
             // call the handler
-            "call syscall_handler",
+            "call syscall_handler_inner",
             // restore callee registers
             "pop r15",
             "pop r14",

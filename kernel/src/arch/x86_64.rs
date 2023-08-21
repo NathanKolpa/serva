@@ -1,4 +1,4 @@
-//! Implementation of x86_64 concepts
+//! Low level abstraction around the x86_64 architecture.
 pub use init::init_x86_64;
 pub use instructions::*;
 pub use privilege::PrivilegeLevel;

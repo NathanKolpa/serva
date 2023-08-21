@@ -5,7 +5,8 @@ use crate::util::address::VirtualAddress;
 /// An abstraction around stacks for interrupts.
 ///
 /// # Safety
-/// Note how its safe to clone , this is due to the way interrupts treat stacks.
+/// Note how its safe to reference the same stack multiple times, this is due to the way interrupts treat stacks.
+/// Hence, clone is also implemented around this "mutable reference wrapper".
 ///
 /// The user can also reference null stacks, this would crash the kernel but is still considered safe since no ub is caused.
 #[derive(Clone, Copy)]
@@ -22,11 +23,11 @@ impl InterruptStackRef {
     }
 
     pub fn from_slice(stack: &'static mut [u8]) -> Self {
-        let start = stack.as_ptr() as u64;
-        let end = start + stack.len() as u64;
+        let start = VirtualAddress::from(stack.as_ptr());
+        let end = start + stack.len();
 
         Self {
-            addr: VirtualAddress::new(end),
+            addr: end
         }
     }
 

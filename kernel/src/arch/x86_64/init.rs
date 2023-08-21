@@ -1,13 +1,13 @@
 use core::mem::MaybeUninit;
 
-use crate::arch::x86_64::constants::TICK_INTERRUPT_INDEX;
+use crate::arch::x86_64::constants::{MIN_STACK_SIZE, TICK_INTERRUPT_INDEX};
 use crate::arch::x86_64::interrupts::{
     InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
 };
 use crate::arch::x86_64::segmentation::*;
 use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
 use crate::arch::x86_64::{halt_loop, PrivilegeLevel};
-use crate::debug_println;
+use crate::{debug_print, debug_println};
 use crate::util::address::VirtualAddress;
 use crate::util::Singleton;
 
@@ -15,9 +15,15 @@ const DOUBLE_FAULT_IST_INDEX: usize = 0;
 
 fn init_tss() -> TaskStateSegment {
     let mut tss = TaskStateSegment::new();
-    static mut STACK: [u8; 4096] = [0; 4096];
+    static mut STACK: [u8; MIN_STACK_SIZE] = [0; MIN_STACK_SIZE];
     tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX] =
         InterruptStackRef::from_slice(unsafe { &mut STACK });
+
+    static mut PSTACK: [u8; MIN_STACK_SIZE] = [0; MIN_STACK_SIZE];
+
+    tss.privilege_stack_table[0] =
+        InterruptStackRef::from_slice(unsafe { &mut PSTACK });
+
     tss
 }
 
@@ -83,12 +89,13 @@ extern "x86-interrupt" fn page_fault_handler(
         core::arch::asm!("mov {}, cr2", out(reg) addr, options(nomem, nostack, preserves_flags));
     }
 
-    let addr = VirtualAddress::new(addr);
+    let addr = VirtualAddress::from(addr);
 
     debug_println!("Page fault interrupt at {addr:?} because {error_code:?}")
 }
 
 extern "x86-interrupt" fn tick(_: InterruptStackFrame) {
+    debug_print!(".");
     PIC_CHAIN.lock().end_of_interrupt(TICK_INTERRUPT_INDEX as u8);
 }
 
@@ -116,6 +123,7 @@ fn init_idt() -> InterruptDescriptorTable {
 
 pub static IDT: Singleton<InterruptDescriptorTable> = Singleton::new(init_idt);
 
+/// Initialize x86_64-specific components for the kernel.
 pub fn init_x86_64() {
     GDT.table.load();
 

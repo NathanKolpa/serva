@@ -185,28 +185,28 @@ impl<F> GateDescriptor<F> {
 
 impl GateDescriptor<Isr> {
     pub fn set_handler(&mut self, selector: SegmentSelector, handler: Isr) {
-        self.set_handler_address(VirtualAddress::new(handler as u64));
+        self.set_handler_address(VirtualAddress::from(handler as u64));
         self.enable_as_normal(selector);
     }
 }
 
 impl GateDescriptor<ErrorIsr> {
     pub fn set_handler(&mut self, selector: SegmentSelector, handler: ErrorIsr) {
-        self.set_handler_address(VirtualAddress::new(handler as u64));
+        self.set_handler_address(VirtualAddress::from(handler as u64));
         self.enable_as_trap(selector);
     }
 }
 
 impl GateDescriptor<PageFaultIsr> {
     pub fn set_handler(&mut self, selector: SegmentSelector, handler: PageFaultIsr) {
-        self.set_handler_address(VirtualAddress::new(handler as u64));
+        self.set_handler_address(VirtualAddress::from(handler as u64));
         self.enable_as_trap(selector);
     }
 }
 
 impl GateDescriptor<DivergingErrorIsr> {
     pub fn set_handler(&mut self, selector: SegmentSelector, handler: DivergingErrorIsr) {
-        self.set_handler_address(VirtualAddress::new(handler as u64));
+        self.set_handler_address(VirtualAddress::from(handler as u64));
         self.enable_as_trap(selector);
     }
 }

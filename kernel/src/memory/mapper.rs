@@ -41,7 +41,7 @@ impl MemoryMapper {
     /// Get the physical address from a virtual address.
     pub fn translate_virtual_to_physical(&self, addr: VirtualAddress) -> Option<PhysicalAddress> {
         let mut frame = self.l4_page;
-        let mut offset = addr.page_offset() as u64;
+        let mut offset = addr.page_offset() as usize;
 
         for (page_level, index) in addr
             .indices()
@@ -62,11 +62,11 @@ impl MemoryMapper {
 
             match (page_level, entry.flags().huge()) {
                 (2, true) => {
-                    offset = addr.l2_page_offset();
+                    offset = addr.l3_page_offset();
                     break;
                 }
                 (1, true) => {
-                    offset = addr.l1_page_offset();
+                    offset = addr.l2_page_offset();
                     break;
                 }
                 (_, true) => panic!("Unexpected huge page in L{page_level} entry"),

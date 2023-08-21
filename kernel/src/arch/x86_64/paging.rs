@@ -111,7 +111,7 @@ impl PageTableEntry {
     }
 
     pub fn addr(&self) -> PhysicalAddress {
-        PhysicalAddress::new(self.value & Self::ADDR_MASK)
+        PhysicalAddress::from(self.value & Self::ADDR_MASK)
     }
 
     pub fn as_frame(&self, level: usize) -> PhysicalPage {
@@ -191,7 +191,7 @@ impl PageSize {
         }
     }
 
-    pub fn as_bytes(&self) -> u64 {
+    pub fn as_usize(&self) -> usize {
         match self {
             PageSize::Size4Kib => 4096,
             PageSize::Size2Mib => 4096 * 512,
@@ -216,20 +216,20 @@ impl<A: Copy> Page<A> {
     }
 
     pub fn end_addr(&self) -> Address<A> {
-        Address::new(self.addr.as_u64() + self.size.as_bytes())
+        self.addr + self.size.as_usize()
     }
 }
 
 impl Page<VirtualAddressMarker> {
     pub fn new(mut addr: VirtualAddress, size: PageSize) -> Self {
-        addr.align_down(size.as_bytes());
+        addr.align_down(size.as_usize());
         Self { addr, size }
     }
 }
 
 impl Page<PhysicalAddressMarker> {
     pub fn new(mut addr: PhysicalAddress, size: PageSize) -> Self {
-        addr.align_down(size.as_bytes());
+        addr.align_down(size.as_usize());
         Self { addr, size }
     }
 
@@ -240,7 +240,7 @@ impl Page<PhysicalAddressMarker> {
             asm!("mov {}, cr3", out(reg) value, options(nomem, nostack, preserves_flags));
         }
 
-        let addr = PhysicalAddress::new(value & 0x_000f_ffff_ffff_f000);
+        let addr = PhysicalAddress::from(value & 0x_000f_ffff_ffff_f000);
 
         (Self::new(addr, PageSize::Size4Kib), (value & 0xFFF) as u16)
     }

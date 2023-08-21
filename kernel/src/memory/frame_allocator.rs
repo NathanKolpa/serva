@@ -4,8 +4,8 @@ use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 
 use crate::arch::x86_64::paging::{PageSize, PhysicalPage};
 use crate::memory::MemoryInfo;
+use crate::util::sync::SpinRwLock;
 use crate::util::Expected;
-use crate::util::sync::{SpinRwLock};
 
 const SIZE: PageSize = PageSize::Size4Kib;
 
@@ -32,7 +32,7 @@ impl FrameAllocator {
 
         let current = self.next.load(Ordering::Relaxed);
 
-        let bytes_allocated = current * SIZE.as_bytes() as usize;
+        let bytes_allocated = current * SIZE.as_usize() as usize;
 
         let mut total_allocatable_bytes = 0;
         let mut total_bytes = 0;
@@ -41,8 +41,8 @@ impl FrameAllocator {
         let regions = memory_map.iter().map(|x| {
             (
                 x.region_type,
-                (x.range.end_frame_number * SIZE.as_bytes()
-                    - x.range.start_frame_number * SIZE.as_bytes()) as usize,
+                (x.range.end_frame_number as usize * SIZE.as_usize()
+                    - x.range.start_frame_number as usize * SIZE.as_usize()),
             )
         });
 
@@ -73,7 +73,7 @@ impl FrameAllocator {
             .iter()
             .filter(|r| r.region_type == MemoryRegionType::Usable)
             .flat_map(|r| {
-                (r.range.start_addr()..r.range.end_addr()).step_by(SIZE.as_bytes() as usize)
+                (r.range.start_addr()..r.range.end_addr()).step_by(SIZE.as_usize() as usize)
             })
             .map(|addr| PhysicalPage::new(addr.into(), SIZE));
 

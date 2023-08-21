@@ -1,13 +1,20 @@
+use core::panic::PanicInfo;
 use bootloader::BootInfo;
 
 use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
-use crate::arch::x86_64::interrupts::enable_interrupts;
 use crate::arch::x86_64::paging::PhysicalPage;
 use crate::arch::x86_64::syscalls::SyscallArgs;
 use crate::arch::x86_64::{halt_loop, init_x86_64, RFlags, ARCH_NAME};
 use crate::debug::DEBUG_CHANNEL;
 use crate::memory::{MemoryMapper, FRAME_ALLOCATOR};
 
+/// The kernel panic handler.
+pub fn handle_panic(info: &PanicInfo) -> ! {
+    debug_println!("{info}");
+    halt_loop()
+}
+
+/// The kernel entry point.
 pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     debug_println!("Starting the Serva Operating System...");
     debug_println!("Architecture: {ARCH_NAME}");
@@ -53,7 +60,7 @@ fn test_syscall(mut memory_map: MemoryMapper) {
     user_flags.set_writable(true);
     user_flags.set_user_accessible(true);
 
-    let user_fn_virt = VirtualAddress::new(user_mode_function as *const () as u64);
+    let user_fn_virt = VirtualAddress::from(user_mode_function as *const ());
     memory_map.set_flags(user_fn_virt, user_flags).discard();
 
     let stack_page = VirtualPage::new(VirtualAddress::new(0x800000), PageSize::Size4Kib);
@@ -65,14 +72,12 @@ fn test_syscall(mut memory_map: MemoryMapper) {
     unsafe {
         memory_map.l4_page().make_active();
 
-        enable_interrupts();
-
         return_from_interrupt(
             user_fn_virt,
             stack_page.end_addr(),
             GDT.user_code,
             GDT.user_data,
-            RFlags::NONE,
+            RFlags::INTERRUPTS_ENABLED,
         )
     }
 }

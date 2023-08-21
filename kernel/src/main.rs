@@ -8,17 +8,14 @@ use core::panic::PanicInfo;
 
 use bootloader::{entry_point, BootInfo};
 
-use kernel::init::kernel_main;
+use kernel::init::{handle_panic, kernel_main};
 
 entry_point!(_start);
 
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    use kernel::arch::x86_64::halt_loop;
-    use kernel::debug_println;
-    debug_println!("{info}");
-    halt_loop()
+    handle_panic(info)
 }
 
 #[cfg(test)]

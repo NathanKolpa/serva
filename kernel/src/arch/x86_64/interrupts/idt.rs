@@ -71,10 +71,10 @@ impl InterruptDescriptorTable {
     }
 
     pub fn pointer(&self) -> DescriptorTablePointer {
-        DescriptorTablePointer {
-            base: VirtualAddress::new(self as *const _ as u64),
-            limit: (size_of::<Self>() - 1) as u16,
-        }
+        DescriptorTablePointer::new(
+            (size_of::<Self>() - 1) as u16,
+            VirtualAddress::from(self as *const _),
+        )
     }
 
     pub fn load(&'static self) {
