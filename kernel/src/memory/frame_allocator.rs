@@ -82,4 +82,5 @@ impl FrameAllocator {
     }
 }
 
+/// The global frame allocator.
 pub static FRAME_ALLOCATOR: FrameAllocator = FrameAllocator::new();

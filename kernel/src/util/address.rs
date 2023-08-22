@@ -46,7 +46,7 @@ impl<L> Address<L> {
     /// # Example
     ///
     /// ```rust
-    /// use crate::kernel::util::address::Address;
+    /// use kernel::util::address::Address;
     ///
     /// assert_eq!(0, Address::align_ptr_up(0, 1024));
     /// assert_eq!(1024, Address::align_ptr_up(1, 1024));
@@ -66,7 +66,7 @@ impl<L> Address<L> {
     /// # Example
     ///
     /// ```rust
-    /// use crate::kernel::util::address::Address;
+    /// use kernel::util::address::Address;
     ///
     /// assert_eq!(0, Address::align_ptr_down(0, 1024));
     /// assert_eq!(0, Address::align_ptr_down(1, 1024));
