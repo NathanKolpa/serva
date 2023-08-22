@@ -1,6 +1,8 @@
+use core::fmt::Display;
 use crate::arch::x86_64::paging::*;
 use crate::memory::flush::{TableCacheFlush, TableListCacheFlush};
 use crate::memory::frame_allocator::FrameAllocator;
+use crate::memory::tree_display::MemoryMapTreeDisplay;
 use crate::util::address::*;
 
 #[derive(Debug, Clone, Copy)]
@@ -49,8 +51,7 @@ impl MemoryMapper {
             .enumerate()
             .map(|(i, index)| (4 - i, index as usize))
         {
-            let table_ptr: *const PageTable = self.translate_table_frame(frame.addr()).as_ptr();
-            let table = unsafe { &*table_ptr };
+            let table = unsafe { self.deref_page_table(frame.addr()) };
 
             let entry = table.as_slice()[index];
 
@@ -86,8 +87,7 @@ impl MemoryMapper {
         let mut frame = self.l4_page;
 
         for index in address.indices() {
-            let table_ptr: *mut PageTable = self.translate_table_frame(frame.addr()).as_mut_ptr();
-            let table = unsafe { &mut *table_ptr };
+            let table = unsafe { self.deref_page_table_mut(frame.addr()) };
             let entry = &mut table.as_mut_slice()[index as usize];
 
             if !entry.flags().contains(flags) {
@@ -111,14 +111,10 @@ impl MemoryMapper {
             .allocate_new_page_table()
             .ok_or(NewMappingError::OutOfFrames)?;
 
-        let table_ptr: *mut PageTable = self.translate_table_frame(new_frame.addr()).as_mut_ptr();
-        let table = unsafe { &mut *table_ptr };
+        let table = unsafe { self.deref_page_table_mut(new_frame.addr()) };
 
         if inherit {
-            let clone_table_ptr: *const PageTable =
-                self.translate_table_frame(self.l4_page.addr()).as_ptr();
-            let clone_table = unsafe { &*clone_table_ptr };
-
+            let clone_table = unsafe { self.deref_page_table_mut(self.l4_page.addr()) };
             table.as_mut_slice().copy_from_slice(clone_table.as_slice())
         } else {
             table.zero();
@@ -148,10 +144,7 @@ impl MemoryMapper {
             .enumerate()
             .map(|(i, index)| (4 - i, index as usize))
         {
-            let table_ptr: *mut PageTable =
-                self.translate_table_frame(table_frame.addr()).as_mut_ptr();
-
-            let table = unsafe { &mut *table_ptr };
+            let table = unsafe { self.deref_page_table_mut(table_frame.addr()) };
 
             let mut entry = table.as_slice()[index];
 
@@ -219,7 +212,31 @@ impl MemoryMapper {
         unsafe { self.map_to(flags, parent_flags, new_page, frame) }
     }
 
+    pub fn deref_l4_page_table(&self) -> &PageTable {
+        // Safety: As stated in the constructor, the l4_page is guaranteed to point to valid data
+        unsafe { self.deref_page_table(self.l4_page.addr()) }
+    }
+
+    /// Safety:
+    /// The caller must ensure that the `addr` parameter points to a valid page table.
+    pub unsafe fn deref_page_table(&self, addr: PhysicalAddress) -> &PageTable {
+        let table_ptr: *const PageTable = self.translate_table_frame(addr).as_ptr();
+        &*table_ptr
+    }
+
+    unsafe fn deref_page_table_mut(&self, addr: PhysicalAddress) -> &mut PageTable {
+        let table_ptr: *mut PageTable = self
+            .translate_table_frame(addr)
+            .as_mut_ptr();
+        &mut *table_ptr
+    }
+
     pub fn l4_page(&self) -> PhysicalPage {
         self.l4_page
+    }
+
+    #[allow(dead_code)]
+    pub fn tree_display(&self, max_depth: Option<u8>) -> impl Display + '_ {
+        MemoryMapTreeDisplay::new(self, max_depth.unwrap_or(4))
     }
 }

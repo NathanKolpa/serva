@@ -4,6 +4,7 @@ mod frame_allocator;
 mod info;
 mod mapper;
 mod flush;
+mod tree_display;
 
 pub use frame_allocator::*;
 pub use info::*;

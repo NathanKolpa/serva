@@ -18,6 +18,19 @@ impl<const SIZE: usize, T> FixedVec<SIZE, T> {
         }
     }
 
+    pub fn initialzed_with(value: T) -> Self
+    where
+        T: Clone,
+    {
+        let mut vec = Self::new();
+
+        for _ in 0..SIZE {
+            vec.push(value.clone());
+        }
+
+        vec
+    }
+
     pub fn push(&mut self, value: T) {
         // Bounds-checking is done by the compiler.
         self.elements[self.len] = MaybeUninit::new(value);

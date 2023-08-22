@@ -1,7 +1,9 @@
+use core::fmt::{Display, Formatter};
+use core::ops::{Deref, DerefMut};
 use core::{arch::asm, fmt::Debug};
 
-
 use crate::util::address::*;
+use crate::util::collections::FixedVec;
 
 #[derive(Clone, Copy, Default)]
 pub struct PageTableEntryFlags {
@@ -107,7 +109,9 @@ impl PageTableEntry {
     }
 
     pub fn flags(&self) -> PageTableEntryFlags {
-        PageTableEntryFlags { value: self.value & !(Self::ADDR_MASK) }
+        PageTableEntryFlags {
+            value: self.value & !(Self::ADDR_MASK),
+        }
     }
 
     pub fn addr(&self) -> PhysicalAddress {
@@ -125,6 +129,52 @@ impl PageTableEntry {
     }
 }
 
+impl Display for PageTableEntryFlags {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        let mut flags = FixedVec::<7, &'static str>::new();
+
+        if self.present() {
+            flags.push("PRESENT");
+        }
+
+        if self.writable() {
+            flags.push("WRITABLE");
+        }
+
+        if self.huge() {
+            flags.push("HUGE");
+        }
+
+        if self.dirty() {
+            flags.push("DIRTY");
+        }
+
+        if self.global() {
+            flags.push("GLOBAL");
+        }
+
+        if self.noexec() {
+            flags.push("NOEXEC");
+        }
+
+        if self.user_accessible() {
+            flags.push("USER");
+        }
+
+        for (i, flag) in flags.iter().enumerate() {
+            let is_last = i == flags.len() - 1;
+
+            write!(f, "{flag}")?;
+
+            if !is_last {
+                write!(f, " & ")?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl Debug for PageTableEntryFlags {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("PageTableEntryFlags")
@@ -139,8 +189,20 @@ impl Debug for PageTableEntryFlags {
     }
 }
 
+impl Display for PageTableEntry {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        if !self.flags().present() {
+            write!(f, "None")?;
+        } else {
+            write!(f, "{:?}, {}", self.addr(), self.flags())?;
+        }
+
+        Ok(())
+    }
+}
+
 impl Debug for PageTableEntry {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("PageTableEntry")
             .field("addr", &self.addr())
             .field("flags", &self.flags())
@@ -168,6 +230,20 @@ impl<const SIZE: usize> PageTable<SIZE> {
         for entry in self.entries.iter_mut() {
             *entry = PageTableEntry::default()
         }
+    }
+}
+
+impl<const SIZE: usize> Deref for PageTable<SIZE> {
+    type Target = [PageTableEntry];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+impl<const SIZE: usize> DerefMut for PageTable<SIZE> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut_slice()
     }
 }
 
