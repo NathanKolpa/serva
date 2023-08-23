@@ -1,5 +1,6 @@
 use core::ops::{Deref, DerefMut};
 
+/// A value expected to be initialized.
 pub struct Expected<T> {
     value: Option<T>,
 }

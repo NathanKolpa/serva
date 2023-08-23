@@ -2,6 +2,7 @@ use core::ops::Deref;
 
 use crate::util::sync::{SpinOnce};
 
+/// A singleton value, that gets initialized on the first access.
 pub struct Singleton<T> {
     value: SpinOnce<T>,
     initializer: fn() -> T,

@@ -2,7 +2,6 @@ use core::panic::PanicInfo;
 
 use bootloader::BootInfo;
 
-use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
 use crate::arch::x86_64::paging::PhysicalPage;
 use crate::arch::x86_64::syscalls::SyscallArgs;
 use crate::arch::x86_64::{halt_loop, init_x86_64, RFlags, ARCH_NAME};
@@ -23,7 +22,6 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     init_x86_64();
 
-    PIC_CHAIN.lock(); // init pic chain
 
     let memory_mapper = unsafe {
         FRAME_ALLOCATOR.init(&boot_info.memory_map);
@@ -63,8 +61,6 @@ fn test_syscall(mut memory_map: MemoryMapper) {
         .unwrap()
         .discard();
 
-    let user_fn_phys = memory_map.translate_virtual_to_physical(user_fn_virt);
-
     let stack_page = VirtualPage::new(VirtualAddress::new(0x800000), PageSize::Size4Kib);
     memory_map
         .new_map(user_flags, user_flags, stack_page)
@@ -72,7 +68,7 @@ fn test_syscall(mut memory_map: MemoryMapper) {
         .discard();
 
     unsafe {
-        memory_map.l4_page().make_active();
+        memory_map.set_active();
 
         return_from_interrupt(
             user_fn_virt,

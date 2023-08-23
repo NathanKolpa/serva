@@ -1,4 +1,4 @@
-//! Basic utilities that the `std` crate normally provides but can't be used because the `#![no_std]` attribute.
+//! Basic utilities that the `std` crate normally provides but can't be used due to the `#![no_std]` attribute.
 
 pub use expected::Expected;
 pub use singleton::Singleton;

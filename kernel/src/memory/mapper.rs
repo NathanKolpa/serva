@@ -21,33 +21,49 @@ pub enum NewMappingError {
 #[derive(Debug, Clone, Copy)]
 pub enum ModifyMappingError {
     NotOwned,
-    NotMapped
+    NotMapped,
 }
 
 impl From<WalkError> for ModifyMappingError {
     fn from(value: WalkError) -> Self {
         match value {
             WalkError::NotMapped => Self::NotMapped,
-            WalkError::NotOwned => Self::NotOwned
+            WalkError::NotOwned => Self::NotOwned,
         }
     }
 }
 
-type UnownedMap = [u64; 512 / 64];
+type BorrowMap = [u64; 512 / 64];
 
+/// The `MemoryMapper` struct manages the mappings between physical and virtual addresses.
+///
+/// # Use-case
+///
+/// There can be multiple instances of a memory mapper throughout the kernel.
+/// This is because a `MemoryMapper` only manages a single level 4 page table.
+/// Typically at startup, the kernel will setup its own memory map, and from which each new (user) task will have these kernel mappings shared in its own address space.
+/// Having the kernel mapped in each running task will make `syscall` that much more performant, since so page tables have to be swapped out.
+///
+/// # Ownership
+///
+/// To avoid programming errors and deallocate unused frames, the `MemoryMapper` mimics rust's ownership rules.
+/// You can read more on the [`MemoryMapper::new_mapper`]'s documentation.
 pub struct MemoryMapper {
     frame_allocator: &'static FrameAllocator,
     l4_page: PhysicalPage,
     global_offset: u64,
-    unowned_map: UnownedMap,
+    borrow_map: BorrowMap,
 }
 
 impl MemoryMapper {
+    /// Create a new memory mapper instance.
+    ///
     /// ## Safety
     /// The caller must guarantee that:
     /// 1. There is only one mapper at a given time.
     /// 2. The complete physical memory is mapped to virtual memory at the passed `global_offset`.
     /// 3. The passed `l4_page` points to a valid level 4 page.
+    /// 4. The memory mapping are not owned by other `MemoryMapper` instances.
     pub unsafe fn new(
         frame_allocator: &'static FrameAllocator,
         l4_page: PhysicalPage,
@@ -57,7 +73,7 @@ impl MemoryMapper {
             frame_allocator,
             l4_page,
             global_offset,
-            unowned_map: Default::default(),
+            borrow_map: Default::default(),
         }
     }
 
@@ -102,21 +118,36 @@ impl MemoryMapper {
     }
 
     fn is_l3_owned(&self, index: usize) -> bool {
-        self.unowned_map[index / 64] & 1 << (index % 64) == 0
+        self.borrow_map[index / 64] & 1 << (index % 64) == 0
     }
 
-    fn inherited_unowned_map(&self) -> UnownedMap {
+    fn share_map(&mut self) -> BorrowMap {
         let table = self.deref_l4_page_table();
-        let mut map = UnownedMap::default();
+        let mut map = BorrowMap::default();
 
         for (i, entry) in table.iter().enumerate() {
             map[i / 64] |= (entry.flags().present() as u64) << (i % 64);
         }
 
+        self.borrow_map = map;
+
         map
     }
 
-    pub fn new_mapper(&self, inherit: bool) -> Result<Self, NewMappingError> {
+    /// Create a new `MemoryMapper`.
+    ///
+    /// When the `inherit` parameter is set to `false`, the new `MemoryMapper` gets a
+    /// empty address space.
+    ///
+    /// When `inherit` is set to `true` the memory map is shared between the current `MemoryMapper` and the new one.
+    /// To avoid concurrency issues between these shared page tables, they cannot be modified by either the current and the new `MemoryMapper`, effectively being borrowed.
+    /// Attempting to modify these tables anyways will result in a [`ModifyMappingError::NotOwned`] error.
+    ///
+    /// Be careful however when using this function, because the borrowed tables will **not** get deallocated when a `MemoryMapper` gets dropped, leaking memory ([which is safe btw](https://doc.rust-lang.org/std/boxed/struct.Box.html#method.leak)).
+    /// This is because the solution to this problem is to reference count the borrowed tables, which is not acceptable for this performance-critical part of the kernel.
+    /// However, this is not an issue when the `MemoryMapper` is used as described in _Use-case_ section on the struct-level documentation.
+    /// Because the kernel mappings will of-course last for the entire execution time of the kernel.
+    pub fn new_mapper(&mut self, inherit: bool) -> Result<Self, NewMappingError> {
         let new_frame = self
             .frame_allocator
             .allocate_new_page_table()
@@ -124,18 +155,22 @@ impl MemoryMapper {
 
         let table = unsafe { self.deref_page_table_mut(new_frame.addr()) };
 
+        let borrow_map;
+
         if inherit {
             let clone_table = unsafe { self.deref_page_table_mut(self.l4_page.addr()) };
-            table.as_mut_slice().copy_from_slice(clone_table.as_slice())
+            table.as_mut_slice().copy_from_slice(clone_table.as_slice());
+            borrow_map = self.share_map();
         } else {
             table.zero();
+            borrow_map = BorrowMap::default();
         }
 
         Ok(Self {
             l4_page: new_frame,
             frame_allocator: self.frame_allocator,
             global_offset: self.global_offset,
-            unowned_map: self.inherited_unowned_map(),
+            borrow_map,
         })
     }
 
@@ -144,7 +179,7 @@ impl MemoryMapper {
         flags: PageTableEntryFlags,
         parent_flags: PageTableEntryFlags,
         new_page: VirtualPage,
-        frame: PhysicalPage,
+        physical_address: PhysicalAddress,
     ) -> Result<impl TableCacheFlush, NewMappingError> {
         let mut cache_flush = TableListCacheFlush::new();
         let mut table_frame = self.l4_page;
@@ -166,7 +201,7 @@ impl MemoryMapper {
                 }
                 (1, false) => {
                     entry.set_flags(flags);
-                    entry.set_addr(frame.addr());
+                    entry.set_addr(physical_address);
                     table[index] = entry;
                     cache_flush.add_table(table_frame);
                 }
@@ -195,14 +230,18 @@ impl MemoryMapper {
     }
 
     /// Creates a new mapping in the page table to the specified physical memory.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because the you can create multiple mutable references to the same memory location, or trigger undefined behaviour to memory mapped IO when used incorrectly.
     pub unsafe fn map_to(
         &mut self,
         flags: PageTableEntryFlags,
         parent_flags: PageTableEntryFlags,
         new_page: VirtualPage,
-        frame: PhysicalPage,
+        physical_address: PhysicalAddress,
     ) -> Result<impl TableCacheFlush, NewMappingError> {
-        self.map_to_inner(flags, parent_flags, new_page, frame)
+        self.map_to_inner(flags, parent_flags, new_page, physical_address)
     }
 
     /// Creates a new mapping in the page table.
@@ -217,17 +256,17 @@ impl MemoryMapper {
             .allocate_new_page_table()
             .ok_or(NewMappingError::OutOfFrames)?;
 
-        unsafe { self.map_to(flags, parent_flags, new_page, frame) }
+        unsafe { self.map_to(flags, parent_flags, new_page, frame.addr()) }
     }
 
-    pub fn deref_l4_page_table(&self) -> &PageTable {
+    fn deref_l4_page_table(&self) -> &PageTable {
         // Safety: As stated in the constructor, the l4_page is guaranteed to point to valid data
         unsafe { self.deref_page_table(self.l4_page.addr()) }
     }
 
     /// Safety:
     /// The caller must ensure that the `addr` parameter points to a valid page table.
-    pub unsafe fn deref_page_table(&self, addr: PhysicalAddress) -> &PageTable {
+    unsafe fn deref_page_table(&self, addr: PhysicalAddress) -> &PageTable {
         let table_ptr: *const PageTable = self.translate_table_frame(addr).as_ptr();
         &*table_ptr
     }
@@ -237,10 +276,12 @@ impl MemoryMapper {
         &mut *table_ptr
     }
 
-    pub fn l4_page(&self) -> PhysicalPage {
-        self.l4_page
+    /// Set the memory map to the address space. In x86_64 terms, this means setting the CR3 register.
+    pub fn set_active(&self) {
+        unsafe { self.l4_page.make_active() }
     }
 
+    /// Display the memory map as a tree view for debugging purposes.
     #[allow(dead_code)]
     pub fn tree_display(&self, max_depth: Option<u8>) -> impl Display + '_ {
         MemoryMapTreeDisplay::new(self, max_depth.unwrap_or(4))
