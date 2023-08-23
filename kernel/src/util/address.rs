@@ -128,8 +128,8 @@ impl Address<VirtualAddressMarker> {
     /// on the x86_64 architecture. Assuming the page is not "huge".
     #[doc(cfg(target_arch = "x86_64"))]
     #[cfg(target_arch = "x86_64")]
-    pub fn page_offset(&self) -> u16 {
-        (self.addr as u16) % (1 << 12)
+    pub fn page_offset(&self) -> usize {
+        (self.addr) % (1 << 12)
     }
 
     /// Calculate the page offset assuming the level 3 page table is "huge"

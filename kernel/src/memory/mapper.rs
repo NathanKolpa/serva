@@ -1,20 +1,45 @@
 use core::fmt::Display;
+
+use page_walker::*;
+
 use crate::arch::x86_64::paging::*;
 use crate::memory::flush::{TableCacheFlush, TableListCacheFlush};
 use crate::memory::frame_allocator::FrameAllocator;
-use crate::memory::tree_display::MemoryMapTreeDisplay;
+use crate::memory::mapper::tree_display::MemoryMapTreeDisplay;
 use crate::util::address::*;
+
+mod page_walker;
+mod tree_display;
 
 #[derive(Debug, Clone, Copy)]
 pub enum NewMappingError {
     AlreadyMapped,
     OutOfFrames,
+    NotOwned,
 }
+
+#[derive(Debug, Clone, Copy)]
+pub enum ModifyMappingError {
+    NotOwned,
+    NotMapped
+}
+
+impl From<WalkError> for ModifyMappingError {
+    fn from(value: WalkError) -> Self {
+        match value {
+            WalkError::NotMapped => Self::NotMapped,
+            WalkError::NotOwned => Self::NotOwned
+        }
+    }
+}
+
+type UnownedMap = [u64; 512 / 64];
 
 pub struct MemoryMapper {
     frame_allocator: &'static FrameAllocator,
     l4_page: PhysicalPage,
     global_offset: u64,
+    unowned_map: UnownedMap,
 }
 
 impl MemoryMapper {
@@ -32,6 +57,7 @@ impl MemoryMapper {
             frame_allocator,
             l4_page,
             global_offset,
+            unowned_map: Default::default(),
         }
     }
 
@@ -42,67 +68,52 @@ impl MemoryMapper {
 
     /// Get the physical address from a virtual address.
     pub fn translate_virtual_to_physical(&self, addr: VirtualAddress) -> Option<PhysicalAddress> {
-        let mut frame = self.l4_page;
-        let mut offset = addr.page_offset() as usize;
+        let last_entry = self.walk_entries(addr).last()?.ok()?;
 
-        for (page_level, index) in addr
-            .indices()
-            .into_iter()
-            .enumerate()
-            .map(|(i, index)| (4 - i, index as usize))
-        {
-            let table = unsafe { self.deref_page_table(frame.addr()) };
+        let offset = match last_entry.level() {
+            1 => addr.page_offset(),
+            2 => addr.l2_page_offset(),
+            3 => addr.l3_page_offset(),
+            _ => panic!("Unexpected level"),
+        };
 
-            let entry = table.as_slice()[index];
-
-            if !entry.flags().present() {
-                return None;
-            }
-
-            frame = entry.as_frame(page_level);
-
-            match (page_level, entry.flags().huge()) {
-                (2, true) => {
-                    offset = addr.l3_page_offset();
-                    break;
-                }
-                (1, true) => {
-                    offset = addr.l2_page_offset();
-                    break;
-                }
-                (_, true) => panic!("Unexpected huge page in L{page_level} entry"),
-                (_, false) => {}
-            }
-        }
-
-        Some(frame.addr() + offset)
+        Some(last_entry.value().addr() + offset)
     }
 
     pub fn set_flags(
         &mut self,
         address: VirtualAddress,
         flags: PageTableEntryFlags,
-    ) -> impl TableCacheFlush {
+    ) -> Result<impl TableCacheFlush, ModifyMappingError> {
         let mut cache_flush = TableListCacheFlush::new();
-        let mut frame = self.l4_page;
 
-        for index in address.indices() {
-            let table = unsafe { self.deref_page_table_mut(frame.addr()) };
-            let entry = &mut table.as_mut_slice()[index as usize];
+        for walk_entry in self.walk_entries_mut(address) {
+            let mut walk_entry = walk_entry?;
+            let level = walk_entry.level();
+            let entry = walk_entry.value_mut();
 
             if !entry.flags().contains(flags) {
                 entry.set_flags(entry.flags() | flags);
-                cache_flush.add_table(frame);
+                cache_flush.add_table(entry.as_frame(level as usize));
             }
-
-            if entry.flags().huge() {
-                break;
-            }
-
-            frame = PhysicalPage::new(entry.addr(), PageSize::Size4Kib);
         }
 
-        cache_flush
+        Ok(cache_flush)
+    }
+
+    fn is_l3_owned(&self, index: usize) -> bool {
+        self.unowned_map[index / 64] & 1 << (index % 64) == 0
+    }
+
+    fn inherited_unowned_map(&self) -> UnownedMap {
+        let table = self.deref_l4_page_table();
+        let mut map = UnownedMap::default();
+
+        for (i, entry) in table.iter().enumerate() {
+            map[i / 64] |= (entry.flags().present() as u64) << (i % 64);
+        }
+
+        map
     }
 
     pub fn new_mapper(&self, inherit: bool) -> Result<Self, NewMappingError> {
@@ -124,6 +135,7 @@ impl MemoryMapper {
             l4_page: new_frame,
             frame_allocator: self.frame_allocator,
             global_offset: self.global_offset,
+            unowned_map: self.inherited_unowned_map(),
         })
     }
 
@@ -146,7 +158,7 @@ impl MemoryMapper {
         {
             let table = unsafe { self.deref_page_table_mut(table_frame.addr()) };
 
-            let mut entry = table.as_slice()[index];
+            let mut entry = table[index];
 
             match (page_level, entry.flags().present()) {
                 (1, true) => {
@@ -155,7 +167,7 @@ impl MemoryMapper {
                 (1, false) => {
                     entry.set_flags(flags);
                     entry.set_addr(frame.addr());
-                    table.as_mut_slice()[index] = entry;
+                    table[index] = entry;
                     cache_flush.add_table(table_frame);
                 }
                 (_, false) => {
@@ -164,17 +176,13 @@ impl MemoryMapper {
                         .allocate_new_page_table()
                         .ok_or(NewMappingError::OutOfFrames)?;
 
-                    let new_table_ptr: *mut PageTable = self
-                        .translate_table_frame(allocated_page.addr())
-                        .as_mut_ptr();
-
-                    let new_table = unsafe { &mut *new_table_ptr };
+                    let new_table = unsafe { self.deref_page_table_mut(allocated_page.addr()) };
 
                     new_table.zero();
 
                     entry.set_flags(parent_flags | entry.flags());
                     entry.set_addr(allocated_page.addr());
-                    table.as_mut_slice()[index] = entry;
+                    table[index] = entry;
                     cache_flush.add_table(table_frame);
                 }
                 _ => {}
@@ -225,9 +233,7 @@ impl MemoryMapper {
     }
 
     unsafe fn deref_page_table_mut(&self, addr: PhysicalAddress) -> &mut PageTable {
-        let table_ptr: *mut PageTable = self
-            .translate_table_frame(addr)
-            .as_mut_ptr();
+        let table_ptr: *mut PageTable = self.translate_table_frame(addr).as_mut_ptr();
         &mut *table_ptr
     }
 
@@ -238,5 +244,19 @@ impl MemoryMapper {
     #[allow(dead_code)]
     pub fn tree_display(&self, max_depth: Option<u8>) -> impl Display + '_ {
         MemoryMapTreeDisplay::new(self, max_depth.unwrap_or(4))
+    }
+
+    fn walk_entries_mut(
+        &mut self,
+        address: VirtualAddress,
+    ) -> impl Iterator<Item = Result<WalkEntry<&mut PageTableEntry>, WalkError>> + '_ {
+        unsafe { MutPageWalker::new(self.l4_page.addr(), address, self) }
+    }
+
+    fn walk_entries(
+        &self,
+        address: VirtualAddress,
+    ) -> impl Iterator<Item = Result<WalkEntry<&PageTableEntry>, WalkError>> + '_ {
+        unsafe { PageWalker::new(address, self.l4_page.addr(), self) }
     }
 }

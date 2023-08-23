@@ -1,4 +1,5 @@
 use core::panic::PanicInfo;
+
 use bootloader::BootInfo;
 
 use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
@@ -35,7 +36,7 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     debug_println!("{:#?}", FRAME_ALLOCATOR.info());
 
-    test_syscall(memory_mapper.new_mapper(true).unwrap());
+    test_syscall(memory_mapper);
 
     halt_loop()
 }
@@ -48,11 +49,7 @@ fn test_syscall(mut memory_map: MemoryMapper) {
     use crate::util::address::*;
 
     unsafe {
-        init_syscalls(
-            handle_syscall,
-            GDT.syscall,
-            GDT.sysret,
-        );
+        init_syscalls(handle_syscall, GDT.syscall, GDT.sysret);
     }
 
     let mut user_flags = PageTableEntryFlags::default();
@@ -61,7 +58,12 @@ fn test_syscall(mut memory_map: MemoryMapper) {
     user_flags.set_user_accessible(true);
 
     let user_fn_virt = VirtualAddress::from(user_mode_function as *const ());
-    memory_map.set_flags(user_fn_virt, user_flags).discard();
+    memory_map
+        .set_flags(user_fn_virt, user_flags)
+        .unwrap()
+        .discard();
+
+    let user_fn_phys = memory_map.translate_virtual_to_physical(user_fn_virt);
 
     let stack_page = VirtualPage::new(VirtualAddress::new(0x800000), PageSize::Size4Kib);
     memory_map
