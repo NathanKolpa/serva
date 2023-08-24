@@ -117,17 +117,15 @@ impl<'a> Iterator for MutPageWalker<'a> {
             .as_mut_ptr();
         let table = unsafe { &mut *table_ptr };
 
-        if page_level == 3 {
-            let is_owned = self.mapper.is_l3_owned(index as usize);
+        self.next_table = table[index as usize].addr();
+        let entry = &mut table[index as usize];
 
-            if !is_owned {
+        if page_level == 4 {
+            if entry.flags().borrowed() {
                 self.done = true;
                 return Some(Err(WalkError::NotOwned));
             }
         }
-
-        self.next_table = table[index as usize].addr();
-        let entry = &mut table[index as usize];
 
         if !entry.flags().present() {
             self.done = true;

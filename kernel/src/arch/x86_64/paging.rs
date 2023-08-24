@@ -31,6 +31,10 @@ impl PageTableEntryFlags {
         self.set_flag(2, enabled)
     }
 
+    pub fn set_borrowed(&mut self, enabled: bool) {
+        self.set_flag(9, enabled)
+    }
+
     fn set_flag(&mut self, bit: u64, enabled: bool) {
         if enabled {
             self.value |= 1 << bit;
@@ -69,6 +73,10 @@ impl PageTableEntryFlags {
 
     pub fn user_accessible(&self) -> bool {
         self.value & (1 << 2) != 0
+    }
+
+    pub fn borrowed(&self) -> bool {
+        self.value & (1 << 9) != 0
     }
 }
 
@@ -118,7 +126,7 @@ impl PageTableEntry {
         PhysicalAddress::from(self.value & Self::ADDR_MASK)
     }
 
-    pub fn as_frame(&self, level: usize) -> PhysicalPage {
+    pub fn as_frame(&self, level: u8) -> PhysicalPage {
         let size = if self.flags().huge() {
             PageSize::from_level(level)
         } else {
@@ -131,7 +139,7 @@ impl PageTableEntry {
 
 impl Display for PageTableEntryFlags {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let mut flags = FixedVec::<7, &'static str>::new();
+        let mut flags = FixedVec::<8, &'static str>::new();
 
         if self.present() {
             flags.push("PRESENT");
@@ -161,6 +169,10 @@ impl Display for PageTableEntryFlags {
             flags.push("USER");
         }
 
+        if self.borrowed() {
+            flags.push("BORROWED");
+        }
+
         for (i, flag) in flags.iter().enumerate() {
             let is_last = i == flags.len() - 1;
 
@@ -185,6 +197,7 @@ impl Debug for PageTableEntryFlags {
             .field("global", &self.global())
             .field("noexec", &self.noexec())
             .field("user_accessible", &self.user_accessible())
+            .field("borrowed", &self.borrowed())
             .finish()
     }
 }
@@ -258,7 +271,7 @@ pub enum PageSize {
 }
 
 impl PageSize {
-    pub const fn from_level(level: usize) -> Self {
+    pub const fn from_level(level: u8) -> Self {
         match level {
             2 => PageSize::Size2Mib,
             3 => PageSize::Size1Gib,

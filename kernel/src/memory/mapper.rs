@@ -33,8 +33,6 @@ impl From<WalkError> for ModifyMappingError {
     }
 }
 
-type BorrowMap = [u64; 512 / 64];
-
 /// The `MemoryMapper` struct manages the mappings between physical and virtual addresses.
 ///
 /// # Use-case
@@ -52,7 +50,6 @@ pub struct MemoryMapper {
     frame_allocator: &'static FrameAllocator,
     l4_page: PhysicalPage,
     global_offset: u64,
-    borrow_map: BorrowMap,
 }
 
 impl MemoryMapper {
@@ -73,7 +70,6 @@ impl MemoryMapper {
             frame_allocator,
             l4_page,
             global_offset,
-            borrow_map: Default::default(),
         }
     }
 
@@ -110,28 +106,24 @@ impl MemoryMapper {
 
             if !entry.flags().contains(flags) {
                 entry.set_flags(entry.flags() | flags);
-                cache_flush.add_table(entry.as_frame(level as usize));
+                cache_flush.add_table(entry.as_frame(level));
             }
         }
 
         Ok(cache_flush)
     }
 
-    fn is_l3_owned(&self, index: usize) -> bool {
-        self.borrow_map[index / 64] & 1 << (index % 64) == 0
-    }
+    fn borrow_owned_entries(&mut self) {
+        let table = self.deref_l4_page_table_mut();
 
-    fn share_map(&mut self) -> BorrowMap {
-        let table = self.deref_l4_page_table();
-        let mut map = BorrowMap::default();
+        let mut borrow_flag = PageTableEntryFlags::default();
+        borrow_flag.set_borrowed(true);
 
-        for (i, entry) in table.iter().enumerate() {
-            map[i / 64] |= (entry.flags().present() as u64) << (i % 64);
+        for entry in table.iter_mut() {
+            if entry.flags().present() && !entry.flags().borrowed() {
+                entry.set_flags(entry.flags() | borrow_flag);
+            }
         }
-
-        self.borrow_map = map;
-
-        map
     }
 
     /// Create a new `MemoryMapper`.
@@ -148,6 +140,10 @@ impl MemoryMapper {
     /// However, this is not an issue when the `MemoryMapper` is used as described in _Use-case_ section on the struct-level documentation.
     /// Because the kernel mappings will of-course last for the entire execution time of the kernel.
     pub fn new_mapper(&mut self, inherit: bool) -> Result<Self, NewMappingError> {
+        if inherit {
+            self.borrow_owned_entries();
+        }
+
         let new_frame = self
             .frame_allocator
             .allocate_new_page_table()
@@ -155,22 +151,17 @@ impl MemoryMapper {
 
         let table = unsafe { self.deref_page_table_mut(new_frame.addr()) };
 
-        let borrow_map;
-
         if inherit {
             let clone_table = unsafe { self.deref_page_table_mut(self.l4_page.addr()) };
             table.as_mut_slice().copy_from_slice(clone_table.as_slice());
-            borrow_map = self.share_map();
         } else {
             table.zero();
-            borrow_map = BorrowMap::default();
         }
 
         Ok(Self {
             l4_page: new_frame,
             frame_allocator: self.frame_allocator,
             global_offset: self.global_offset,
-            borrow_map,
         })
     }
 
@@ -184,13 +175,7 @@ impl MemoryMapper {
         let mut cache_flush = TableListCacheFlush::new();
         let mut table_frame = self.l4_page;
 
-        for (page_level, index) in new_page
-            .addr()
-            .indices()
-            .into_iter()
-            .enumerate()
-            .map(|(i, index)| (4 - i, index as usize))
-        {
+        for (page_level, index) in Self::iter_address(new_page.addr()) {
             let table = unsafe { self.deref_page_table_mut(table_frame.addr()) };
 
             let mut entry = table[index];
@@ -259,6 +244,12 @@ impl MemoryMapper {
         unsafe { self.map_to(flags, parent_flags, new_page, frame.addr()) }
     }
 
+    fn deref_l4_page_table_mut(&mut self) -> &mut PageTable {
+        // Safety: As stated in the constructor, the l4_page is guaranteed to point to valid data
+        unsafe { self.deref_page_table_mut(self.l4_page.addr()) }
+    }
+
+
     fn deref_l4_page_table(&self) -> &PageTable {
         // Safety: As stated in the constructor, the l4_page is guaranteed to point to valid data
         unsafe { self.deref_page_table(self.l4_page.addr()) }
@@ -299,5 +290,13 @@ impl MemoryMapper {
         address: VirtualAddress,
     ) -> impl Iterator<Item = Result<WalkEntry<&PageTableEntry>, WalkError>> + '_ {
         unsafe { PageWalker::new(address, self.l4_page.addr(), self) }
+    }
+
+    fn iter_address(address: VirtualAddress) -> impl Iterator<Item = (u8, usize)> {
+        address
+            .indices()
+            .into_iter()
+            .enumerate()
+            .map(|(i, index)| (4 - i as u8, index as usize))
     }
 }
