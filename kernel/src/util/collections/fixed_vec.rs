@@ -31,6 +31,10 @@ impl<const SIZE: usize, T> FixedVec<SIZE, T> {
         vec
     }
 
+    pub fn is_full(&self) -> bool {
+        self.len == SIZE
+    }
+
     pub fn push(&mut self, value: T) {
         // Bounds-checking is done by the compiler.
         self.elements[self.len] = MaybeUninit::new(value);
