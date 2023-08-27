@@ -1,4 +1,4 @@
-use spin::Mutex;
+use uart_16550::SerialPort;
 use crate::arch::x86_64::port::{Port, ReadOnly, ReadWrite, WriteOnly};
 use crate::util::Singleton;
 use crate::util::sync::SpinMutex;
@@ -6,7 +6,6 @@ use crate::util::sync::SpinMutex;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 enum LineStatusFlags {
-    InputFull = 1,
     OutputEmpty = 1 << 5,
 }
 
@@ -64,33 +63,13 @@ impl Uart16550 {
             self.modem_ctrl.write(0x0B);
 
             // Enable  interrupts
-            self.interrupts_enabled.write(0x01);
+            // self.interrupts_enabled.write(0x01);
         }
-    }
-
-    #[allow(dead_code)]
-    fn receive_available(&mut self) -> bool {
-        unsafe { self.line_status.read() & LineStatusFlags::InputFull as u8 != 0 }
-    }
-
-    #[allow(dead_code)]
-    fn receive(&mut self) -> u8 {
-        unsafe {
-            self.wait_for(LineStatusFlags::InputFull);
-            self.data.read()
-        }
-    }
-
-    #[allow(dead_code)]
-    fn write_available(&mut self) -> bool {
-        unsafe { self.line_status.read() & LineStatusFlags::OutputEmpty as u8 != 0 }
     }
 
     fn write(&mut self, byte: u8) {
         unsafe {
-            let data = self.data.read();
-
-            match data {
+            match byte {
                 8 | 0x7F => {
                     self.wait_for(LineStatusFlags::OutputEmpty);
                     self.data.write(8);
@@ -110,16 +89,16 @@ impl Uart16550 {
     }
 
     unsafe fn wait_for(&mut self, status_flag: LineStatusFlags) {
-        while self.line_status.read() & status_flag as u8 == 0 {
+        while (self.line_status.read() & status_flag as u8) == 0 {
             core::hint::spin_loop();
         }
     }
 }
 
-fn init_serial() -> Mutex<Uart16550> {
-    let mut serial = SpinMutex::new(unsafe { Uart16550::new(0x3F8) });
+fn init_serial() -> SpinMutex<SerialPort> {
+    let mut serial = SpinMutex::new(unsafe { SerialPort::new(0x3F8) });
     serial.get_mut().init();
     serial
 }
 
-pub static SERIAL: Singleton<SpinMutex<Uart16550>> = Singleton::new(init_serial);
+pub static SERIAL: Singleton<SpinMutex<SerialPort>> = Singleton::new(init_serial);

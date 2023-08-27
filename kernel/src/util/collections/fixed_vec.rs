@@ -18,7 +18,7 @@ impl<const SIZE: usize, T> FixedVec<SIZE, T> {
         }
     }
 
-    pub fn initialzed_with(value: T) -> Self
+    pub fn initialized_with(value: T) -> Self
     where
         T: Clone,
     {

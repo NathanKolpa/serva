@@ -1,6 +1,7 @@
 use core::arch::asm;
 
 #[repr(transparent)]
+#[derive(Debug, Copy, Clone)]
 pub struct RFlags {
     value: u64,
 }
@@ -22,6 +23,7 @@ impl RFlags {
         Self { value }
     }
 
+    #[inline(always)]
     pub fn as_u64(&self) -> u64 {
         self.value
     }

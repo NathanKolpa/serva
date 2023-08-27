@@ -59,8 +59,15 @@ impl SegmentSelector {
         PrivilegeLevel::from(bits as u8)
     }
 
+    #[inline]
     pub fn as_u16(&self) -> u16 {
         self.value
+    }
+}
+
+impl From<u16> for SegmentSelector  {
+    fn from(value: u16) -> Self {
+        Self { value }
     }
 }
 

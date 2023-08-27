@@ -115,7 +115,7 @@ impl<'a> MemoryMapTreeDisplay<'a> {
 
 impl Display for MemoryMapTreeDisplay<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let mut skip_list = FixedVec::<4, _>::initialzed_with(false);
+        let mut skip_list = FixedVec::<4, _>::initialized_with(false);
         writeln!(f, "CR3")?;
         self.print_page_table(
             f,

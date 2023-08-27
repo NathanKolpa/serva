@@ -77,6 +77,7 @@ impl<L> Address<L> {
         addr & !(align - 1)
     }
 
+    #[inline(always)]
     pub fn as_u64(&self) -> u64 {
         self.addr as u64
     }

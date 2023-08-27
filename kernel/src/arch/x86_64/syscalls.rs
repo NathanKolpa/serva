@@ -2,46 +2,11 @@ use core::arch::asm;
 use core::mem::MaybeUninit;
 use core::ops::Add;
 
-use crate::arch::x86_64::interrupts::{disable_interrupts, enable_interrupts};
+use crate::arch::x86_64::interrupts::{disable_interrupts, enable_interrupts, InterruptStackFrame};
 use crate::arch::x86_64::segmentation::SegmentSelector;
 use crate::arch::x86_64::RFlags;
 use crate::debug_println;
 use crate::util::address::VirtualAddress;
-
-/// Call the [`iretq`](https://www.felixcloutier.com/x86/iret:iretd:iretq) (64 bit variant of `iret`) instruction, a.k.a. "return from interrupt".
-/// According to the [osdev wiki](https://wiki.osdev.org/Getting_to_Ring_3#iret_method), it's not actually required to be in a interrupt handler to call this instruction as the name would otherwise suggest.
-/// Meaning that this function can (and should) be used to change the current privilege level.
-///
-/// ## Parameters
-/// - `code` The code that will executed after this function.
-/// - `stack_end` The stack address that will be used.
-/// - `code_segment` The value that will be stored in the `CS` register.
-/// - `data_segment` The value that will be stored in the `DS` register.
-///
-/// ## Safety
-/// You can really mess with the computer if not used correctly, so be careful, I guess.
-pub unsafe fn return_from_interrupt(
-    code: VirtualAddress,
-    stack_end: VirtualAddress,
-    code_segment: SegmentSelector,
-    data_segment: SegmentSelector,
-    rflags: RFlags,
-) -> ! {
-    asm!(
-        "push rax",  // stack segment
-        "push rsi",    // rsp
-        "push {rflags}",           // rflags
-        "push rdx",   // code segment
-        "push rdi",      // ret to virtual addr
-        "iretq",
-        rflags = in(reg) rflags.as_u64(),
-        in("rdi") code.as_u64(),
-        in("rsi") stack_end.as_u64(),
-        in("dx") code_segment.as_u16(),
-        in("ax") data_segment.as_u16(),
-        options(noreturn)
-    )
-}
 
 #[derive(Debug)]
 pub struct SyscallArgs {

@@ -1,12 +1,18 @@
+use core::mem::MaybeUninit;
+use core::sync::atomic::{AtomicBool, Ordering};
+
 use crate::arch::x86_64::constants::{MIN_STACK_SIZE, TICK_INTERRUPT_INDEX};
+use crate::arch::x86_64::context::InterruptedContext;
 use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
 use crate::arch::x86_64::interrupts::{
     InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
 };
 use crate::arch::x86_64::segmentation::*;
 use crate::arch::x86_64::PrivilegeLevel;
+use crate::interrupts::INTERRUPT_HANDLERS;
 use crate::util::address::VirtualAddress;
-use crate::util::Singleton;
+use crate::util::sync::SpinOnce;
+use crate::util::{InitializeGuard, Singleton};
 use crate::{debug_print, debug_println};
 
 const DOUBLE_FAULT_IST_INDEX: usize = 0;
@@ -65,6 +71,12 @@ fn init_gdt() -> FullGdt {
 
 pub static GDT: Singleton<FullGdt> = Singleton::new(init_gdt);
 
+pub struct InterruptHandlers {
+    pub tick: fn(ctx: InterruptedContext) -> !,
+}
+
+static mut INT_HANDLERS: MaybeUninit<InterruptHandlers> = MaybeUninit::uninit();
+
 extern "x86-interrupt" fn double_fault_handler(frame: InterruptStackFrame, error_code: u64) -> ! {
     panic!("Double fault: {error_code} {frame:?}")
 }
@@ -88,14 +100,19 @@ extern "x86-interrupt" fn page_fault_handler(
 
     let addr = VirtualAddress::from(addr);
 
-    debug_println!("Page fault interrupt at {addr:?} because {error_code:?}")
+    panic!("Page fault interrupt at {addr:?} because {error_code:?}")
 }
 
-extern "x86-interrupt" fn tick(_: InterruptStackFrame) {
-    debug_print!(".");
+extern "x86-interrupt" fn tick(sf: InterruptStackFrame) {
+    let ctx = InterruptedContext::current(sf);
+
     PIC_CHAIN
         .lock()
         .end_of_interrupt(TICK_INTERRUPT_INDEX as u8);
+
+    unsafe {
+        (INT_HANDLERS.assume_init_ref().tick)(ctx);
+    }
 }
 
 fn init_idt() -> InterruptDescriptorTable {
@@ -109,27 +126,39 @@ fn init_idt() -> InterruptDescriptorTable {
 
     idt.general_protection_fault
         .set_handler(kernel_segment, general_protection_fault_handler);
-    idt.double_fault.set_stack_index(DOUBLE_FAULT_IST_INDEX); // TODO
+    idt.general_protection_fault
+        .set_stack_index(DOUBLE_FAULT_IST_INDEX); // TODO
 
     idt.page_fault
         .set_handler(kernel_segment, page_fault_handler);
-    idt.double_fault.set_stack_index(DOUBLE_FAULT_IST_INDEX); // TODO
+    idt.page_fault.set_stack_index(DOUBLE_FAULT_IST_INDEX); // TODO
 
     idt[TICK_INTERRUPT_INDEX].set_handler(kernel_segment, tick);
+    // idt[TICK_INTERRUPT_INDEX].set_stack_index(DOUBLE_FAULT_IST_INDEX);
 
     idt
 }
 
 pub static IDT: Singleton<InterruptDescriptorTable> = Singleton::new(init_idt);
 
+static INITIALIZED: InitializeGuard = InitializeGuard::new();
+
 /// Initialize x86_64-specific components for the kernel.
-pub fn init_x86_64() {
+pub fn init_x86_64(interrupt_handlers: InterruptHandlers) {
+    INITIALIZED.guard();
+
+    unsafe {
+        let handlers = &mut INT_HANDLERS;
+        handlers.write(interrupt_handlers);
+    }
+
     GDT.table.load();
 
     unsafe {
-        GDT.kernel_code.load_into_cs(); // Meaning the current code segment (CS) is the kernel code
+        // load GDT segments
+        GDT.kernel_code.load_into_cs();
         GDT.kernel_data.load_into_ds();
-        GDT.tss.load_into_tss(); // Load the TSS.
+        GDT.tss.load_into_tss();
     }
 
     IDT.load();

@@ -1,12 +1,17 @@
+use core::arch::asm;
+use core::hint::spin_loop;
 use core::panic::PanicInfo;
 
 use bootloader::BootInfo;
 
 use crate::arch::x86_64::paging::PhysicalPage;
-use crate::arch::x86_64::syscalls::SyscallArgs;
-use crate::arch::x86_64::{halt_loop, init_x86_64, RFlags, ARCH_NAME};
+use crate::arch::x86_64::{halt_loop, init_x86_64, ARCH_NAME, halt};
+use crate::arch::x86_64::init::GDT;
+use crate::arch::x86_64::syscalls::{init_syscalls, SyscallArgs};
 use crate::debug::DEBUG_CHANNEL;
+use crate::interrupts::INTERRUPT_HANDLERS;
 use crate::memory::{MemoryMapper, FRAME_ALLOCATOR};
+use crate::multi_tasking::scheduler::{TaskStack, SCHEDULER};
 
 /// The kernel panic handler.
 pub fn handle_panic(info: &PanicInfo) -> ! {
@@ -20,8 +25,7 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     debug_println!("Architecture: {ARCH_NAME}");
     debug_println!("Debug channel: {DEBUG_CHANNEL}");
 
-    init_x86_64();
-
+    init_x86_64(INTERRUPT_HANDLERS);
 
     let memory_mapper = unsafe {
         FRAME_ALLOCATOR.init(&boot_info.memory_map);
@@ -34,68 +38,41 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     debug_println!("{:#?}", FRAME_ALLOCATOR.info());
 
-    test_syscall(memory_mapper);
+    SCHEDULER.initialize(memory_mapper, exit);
 
+    add_test_tasks();
+    debug_println!("Initialized the kernel, calling the first scheduler task.");
+
+    SCHEDULER.start()
+}
+
+fn exit() -> ! {
+    debug_println!("Not tasks left to execute, goodnight!");
     halt_loop()
 }
 
-fn test_syscall(mut memory_map: MemoryMapper) {
-    use crate::arch::x86_64::init::GDT;
-    use crate::arch::x86_64::paging::*;
-    use crate::arch::x86_64::syscalls::*;
-    use crate::memory::TableCacheFlush;
-    use crate::util::address::*;
+fn add_test_tasks() {
+    static mut STACK1: [u8; 1000] = [0; 1000];
 
-    unsafe {
-        init_syscalls(handle_syscall, GDT.syscall, GDT.sysret);
-    }
-
-    let mut user_flags = PageTableEntryFlags::default();
-    user_flags.set_present(true);
-    user_flags.set_writable(true);
-    user_flags.set_user_accessible(true);
-
-    let user_fn_virt = VirtualAddress::from(user_mode_function as *const ());
-    memory_map
-        .set_flags(user_fn_virt, user_flags)
-        .unwrap()
-        .discard();
-
-    let stack_page = VirtualPage::new(VirtualAddress::new(0x800000), PageSize::Size4Kib);
-    memory_map
-        .new_map(user_flags, user_flags, stack_page)
-        .unwrap()
-        .discard();
-
-    unsafe {
-        memory_map.set_active();
-
-        return_from_interrupt(
-            user_fn_virt,
-            stack_page.end_addr(),
-            GDT.user_code,
-            GDT.user_data,
-            RFlags::INTERRUPTS_ENABLED,
-        )
-    }
-}
-
-extern "C" fn user_mode_function() {
-    loop {
-        unsafe {
-            core::arch::asm!(
-                "mov rax, 1",
-                "mov rdi, 2",
-                "mov rsi, 3",
-                "mov rdx, 4",
-                "mov r10, 5",
-                "syscall"
-            )
+    SCHEDULER.add_kernel_task(unsafe { TaskStack::from_slice(&mut STACK1) }, || loop {
+        let mut nonce = 0;
+        loop {
+            nonce += 1;
+            debug_println!("Mia {nonce}");
+            halt();
         }
-    }
-}
+    });
 
-fn handle_syscall(args: SyscallArgs) -> u64 {
-    debug_println!("{args:?}");
-    0
+    // TODO: 1 task werkt, 2 niet
+
+    static mut STACK2: [u8; 1000] = [0; 1000];
+
+    SCHEDULER.add_kernel_task(unsafe { TaskStack::from_slice(&mut STACK2) }, || loop {
+        let mut nonce = 0;
+        loop {
+            nonce += 1;
+            debug_println!("Mauw {nonce}");
+            halt();
+        }
+    });
 }
