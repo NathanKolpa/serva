@@ -9,12 +9,12 @@ use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
 use crate::util::sync::SpinMutex;
 
-pub struct TaskStack {
+pub struct ThreadStack {
     size: usize,
     top: VirtualAddress,
 }
 
-impl TaskStack {
+impl ThreadStack {
     pub fn from_slice(slice: &'static mut [u8]) -> Self {
         Self {
             size: slice.len(),
@@ -23,17 +23,17 @@ impl TaskStack {
     }
 
     pub fn ctx_mut(&mut self) -> *mut InterruptedContext {
-        const CTX_SIZE: usize = 20 * 8;
+        const CTX_SIZE: usize = size_of::<InterruptedContext>();
 
         assert!(CTX_SIZE < self.size);
         (self.top.as_usize() - CTX_SIZE ) as *mut InterruptedContext
     }
 }
 
-pub enum TaskState {
+pub enum ThreadState {
     Starting {
         entry_point: VirtualAddress,
-        stack: TaskStack,
+        stack: ThreadStack,
     },
     Running {
         state: RunningState,
@@ -47,12 +47,12 @@ pub enum RunningState {
     Executing,
 }
 
-pub enum TaskKind {
+pub enum ThreadKind {
     Kernel,
     User { memory_map: MemoryMapper },
 }
 
-impl TaskKind {
+impl ThreadKind {
     fn selectors(&self) -> (SegmentSelector, SegmentSelector) {
         match self {
             Self::Kernel => (GDT.kernel_code, GDT.kernel_data),
@@ -61,18 +61,16 @@ impl TaskKind {
     }
 }
 
-pub struct Task {
-    id: usize,
-    state: SpinMutex<TaskState>,
-    kind: TaskKind,
+pub struct Thread {
+    state: SpinMutex<ThreadState>,
+    kind: ThreadKind,
 }
 
-impl Task {
-    pub fn new(id: usize, kind: TaskKind, stack: TaskStack, entry_point: VirtualAddress) -> Self {
+impl Thread {
+    pub fn new(kind: ThreadKind, stack: ThreadStack, entry_point: VirtualAddress) -> Self {
         Self {
-            id,
             kind,
-            state: SpinMutex::new(TaskState::Starting { stack, entry_point }),
+            state: SpinMutex::new(ThreadState::Starting { stack, entry_point }),
         }
     }
 
@@ -82,7 +80,7 @@ impl Task {
         // TODO: set current state as waiting
 
         match lock.deref_mut() {
-            TaskState::Running { context_ptr, .. } => {
+            ThreadState::Running { context_ptr, .. } => {
                 *context_ptr = new_context;
             }
             _ => {}
@@ -94,7 +92,7 @@ impl Task {
 
 
         match lock.deref_mut() {
-            TaskState::Starting { stack, entry_point } => {
+            ThreadState::Starting { stack, entry_point } => {
                 let (code_selector, data_selector) = self.kind.selectors();
 
                 let stack_top = stack.top;
@@ -112,14 +110,14 @@ impl Task {
                     ));
                 }
 
-                *lock = TaskState::Running {
+                *lock = ThreadState::Running {
                     state: RunningState::Executing,
                     context_ptr: ctx,
                 };
 
                 ctx
             }
-            TaskState::Running { context_ptr, .. } => *context_ptr,
+            ThreadState::Running { context_ptr, .. } => *context_ptr,
         }
     }
 }

@@ -15,7 +15,7 @@ mod task;
 // tegen het advies van Remco in, schrijf ik toch mijn eigen scheduler.
 
 pub struct Scheduler {
-    tasks: SpinRwLock<FixedVec<10, Option<Task>>>,
+    tasks: SpinRwLock<FixedVec<10, Option<Thread>>>,
     current: SpinMutex<Option<usize>>,
     default_memory_map: UnsafeCell<MaybeUninit<MemoryMapper>>,
     on_exit: UnsafeCell<MaybeUninit<fn() -> !>>,
@@ -42,38 +42,36 @@ impl Scheduler {
         }
     }
 
-    pub fn add_kernel_task(&self, stack: TaskStack, main: fn() -> !) {
+    pub fn add_kernel_task(&self, stack: ThreadStack, main: fn() -> !) {
         self.add_task(
-            TaskKind::Kernel,
+            ThreadKind::Kernel,
             stack,
             VirtualAddress::from(main as *const fn()),
         )
     }
 
-    fn add_task(&self, kind: TaskKind, stack: TaskStack, entry_point: VirtualAddress) {
+    fn add_task(&self, kind: ThreadKind, stack: ThreadStack, entry_point: VirtualAddress) {
         let mut task_lock = self.tasks.write();
 
-        let id;
         let slot;
 
-        let search_result = task_lock.iter_mut().enumerate().find(|(_, x)| x.is_none());
+        let search_result = task_lock.iter_mut().find(|x| x.is_none());
         match search_result {
             None => {
                 if task_lock.is_full() {
                     panic!("Exceeded maximum amount of tasks");
                 }
 
-                id = task_lock.len();
+                let id = task_lock.len();
                 task_lock.push(None);
                 slot = &mut task_lock[id];
             }
             Some(search_result) => {
-                id = search_result.0;
-                slot = search_result.1;
+                slot = search_result;
             }
         }
 
-        *slot = Some(Task::new(id, kind, stack, entry_point));
+        *slot = Some(Thread::new(kind, stack, entry_point));
     }
 
     pub fn start(&self) -> ! {

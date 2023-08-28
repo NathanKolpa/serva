@@ -11,7 +11,7 @@ use crate::arch::x86_64::syscalls::{init_syscalls, SyscallArgs};
 use crate::debug::DEBUG_CHANNEL;
 use crate::interrupts::INTERRUPT_HANDLERS;
 use crate::memory::{MemoryMapper, FRAME_ALLOCATOR};
-use crate::multi_tasking::scheduler::{TaskStack, SCHEDULER};
+use crate::multi_tasking::scheduler::{ThreadStack, SCHEDULER};
 
 /// The kernel panic handler.
 pub fn handle_panic(info: &PanicInfo) -> ! {
@@ -54,7 +54,7 @@ fn exit() -> ! {
 fn add_test_tasks() {
     static mut STACK1: [u8; 1000] = [0; 1000];
 
-    SCHEDULER.add_kernel_task(unsafe { TaskStack::from_slice(&mut STACK1) }, || loop {
+    SCHEDULER.add_kernel_task(unsafe { ThreadStack::from_slice(&mut STACK1) }, || loop {
         halt();
         let mut nonce = 0;
         loop {
@@ -64,7 +64,7 @@ fn add_test_tasks() {
     });
 
     static mut STACK2: [u8; 1000] = [0; 1000];
-    SCHEDULER.add_kernel_task(unsafe { TaskStack::from_slice(&mut STACK2) }, || loop {
+    SCHEDULER.add_kernel_task(unsafe { ThreadStack::from_slice(&mut STACK2) }, || loop {
         let mut nonce = 0;
         loop {
             nonce += 1;
@@ -73,7 +73,7 @@ fn add_test_tasks() {
     });
 
     static mut STACK3: [u8; 1000] = [0; 1000];
-    SCHEDULER.add_kernel_task(unsafe { TaskStack::from_slice(&mut STACK3) }, || loop {
+    SCHEDULER.add_kernel_task(unsafe { ThreadStack::from_slice(&mut STACK3) }, || loop {
         let mut nonce = 0;
         loop {
             nonce += 1;
