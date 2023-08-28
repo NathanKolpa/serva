@@ -1,6 +1,7 @@
 use core::arch::asm;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
+use crate::arch::x86_64::interrupts::context::InterruptStackFrame;
 
 use crate::arch::x86_64::segmentation::SegmentSelector;
 use crate::arch::x86_64::RFlags;
@@ -67,53 +68,6 @@ impl Debug for PageFaultErrorCode {
         ds.field("sgx_access_control", &self.sgx_access_control());
         ds.field("rmp_violation", &self.rmp_violation());
         ds.finish()
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub struct InterruptStackFrame {
-    pub instruction_pointer: VirtualAddress,
-    pub code_segment: u64,
-    pub cpu_flags: RFlags,
-    pub stack_pointer: VirtualAddress,
-    pub stack_segment: u64,
-}
-
-impl InterruptStackFrame {
-    pub fn new(
-        instruction_pointer: VirtualAddress,
-        stack_pointer: VirtualAddress,
-        cpu_flags: RFlags,
-        code_segment: SegmentSelector,
-        stack_segment: SegmentSelector,
-    ) -> Self {
-        Self {
-            instruction_pointer,
-            code_segment: code_segment.as_u16() as u64,
-            cpu_flags,
-            stack_pointer,
-            stack_segment: stack_segment.as_u16() as u64
-        }
-    }
-
-
-    #[inline(always)]
-    pub unsafe fn iretq(&self) -> ! {
-        asm!(
-        "push {data_segment}",
-        "push {stack_end}",
-        "push {rflags}",
-        "push {code_segment}",
-        "push {code}",
-        "iretq",
-        rflags = in(reg) self.cpu_flags.as_u64(),
-        code = in(reg) self.instruction_pointer.as_u64(),
-        stack_end = in(reg) self.stack_pointer.as_u64(),
-        code_segment = in(reg) self.code_segment,
-        data_segment = in(reg) self.stack_segment,
-        options(noreturn)
-        )
     }
 }
 

@@ -3,3 +3,6 @@ resolver = "2"
 members = [
     "kernel"
 ]
+
+[profile.dev]
+opt-level = 1 # Setting this to 0 breaks multitasking!

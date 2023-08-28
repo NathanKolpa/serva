@@ -16,6 +16,5 @@ pub mod tables;
 pub mod syscalls;
 pub mod devices;
 mod rflags;
-pub mod context;
 
 pub const ARCH_NAME: &str = "x86_64";

@@ -2,7 +2,7 @@ use core::arch::asm;
 use core::mem::MaybeUninit;
 use core::ops::Add;
 
-use crate::arch::x86_64::interrupts::{disable_interrupts, enable_interrupts, InterruptStackFrame};
+use crate::arch::x86_64::interrupts::{disable_interrupts, enable_interrupts};
 use crate::arch::x86_64::segmentation::SegmentSelector;
 use crate::arch::x86_64::RFlags;
 use crate::debug_println;

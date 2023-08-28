@@ -3,7 +3,7 @@ use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 pub use task::*;
-use crate::arch::x86_64::context::InterruptedContext;
+use crate::arch::x86_64::interrupts::context::InterruptedContext;
 
 use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
@@ -78,15 +78,17 @@ impl Scheduler {
 
     pub fn start(&self) -> ! {
         self.initialized.assert_initialized();
-        self.next_task()
+        let ctx = self.next_task();
+
+        unsafe { (&*ctx).interrupt_stack_frame.iretq() }
     }
 
-    pub unsafe fn next_tick(&self, ctx: InterruptedContext) -> ! {
+    pub unsafe fn next_context(&self, ctx: *const InterruptedContext) -> *const InterruptedContext {
         self.save_current(ctx);
         self.next_task()
     }
 
-    fn save_current(&self, ctx: InterruptedContext) {
+    fn save_current(&self, ctx: *const InterruptedContext) {
         let Some(current) = *self.current.lock() else {
             return;
         };
@@ -95,7 +97,7 @@ impl Scheduler {
         tasks[current].as_ref().unwrap().save_context(ctx);
     }
 
-    fn next_task(&self) -> ! {
+    fn next_task(&self) -> *const InterruptedContext {
         let tasks = self.tasks.read();
 
         let next = {
@@ -121,8 +123,7 @@ impl Scheduler {
             None => self.exit(),
             Some(next) => {
                 let task = tasks[next].as_ref().unwrap();
-
-                task.run()
+                task.run_next()
             }
         }
     }

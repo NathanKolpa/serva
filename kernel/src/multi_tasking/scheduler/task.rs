@@ -1,9 +1,8 @@
-use core::mem::MaybeUninit;
+use core::mem::{size_of, MaybeUninit};
 use core::ops::{Deref, DerefMut};
 
-use crate::arch::x86_64::context::InterruptedContext;
 use crate::arch::x86_64::init::GDT;
-use crate::arch::x86_64::interrupts::InterruptStackFrame;
+use crate::arch::x86_64::interrupts::context::{InterruptStackFrame, InterruptedContext};
 use crate::arch::x86_64::segmentation::SegmentSelector;
 use crate::arch::x86_64::RFlags;
 use crate::memory::MemoryMapper;
@@ -22,6 +21,13 @@ impl TaskStack {
             top: VirtualAddress::from(slice.as_ptr().wrapping_add(slice.len())),
         }
     }
+
+    pub fn ctx_mut(&mut self) -> *mut InterruptedContext {
+        const CTX_SIZE: usize = 20 * 8;
+
+        assert!(CTX_SIZE < self.size);
+        (self.top.as_usize() - CTX_SIZE ) as *mut InterruptedContext
+    }
 }
 
 pub enum TaskState {
@@ -31,7 +37,7 @@ pub enum TaskState {
     },
     Running {
         state: RunningState,
-        context: MaybeUninit<InterruptedContext>,
+        context_ptr: *const InterruptedContext,
     },
 }
 
@@ -70,53 +76,50 @@ impl Task {
         }
     }
 
-    pub fn save_context(&self, new_context: InterruptedContext) {
+    pub fn save_context(&self, new_context: *const InterruptedContext) {
         let mut lock = self.state.lock();
 
         // TODO: set current state as waiting
 
         match lock.deref_mut() {
-            TaskState::Running { context, .. } => {
-                context.write(new_context);
+            TaskState::Running { context_ptr, .. } => {
+                *context_ptr = new_context;
             }
             _ => {}
         }
     }
 
-    pub fn run(&self) -> ! {
+    pub fn run_next(&self) -> *const InterruptedContext {
         let mut lock = self.state.lock();
 
-        let (code_selector, data_selector) = self.kind.selectors();
 
         match lock.deref_mut() {
             TaskState::Starting { stack, entry_point } => {
+                let (code_selector, data_selector) = self.kind.selectors();
+
                 let stack_top = stack.top;
                 let entry_point = *entry_point;
 
-                *lock = TaskState::Running {
-                    state: RunningState::Executing,
-                    context: MaybeUninit::uninit(),
-                };
-
-                drop(lock);
-
-                let sf = InterruptStackFrame::new(
-                    entry_point,
-                    stack_top,
-                    RFlags::INTERRUPTS_ENABLED,
-                    code_selector,
-                    data_selector,
-                );
+                let ctx = stack.ctx_mut();
 
                 unsafe {
-                    sf.iretq()
+                    *ctx = InterruptedContext::start_new(InterruptStackFrame::new(
+                        entry_point,
+                        stack_top,
+                        RFlags::INTERRUPTS_ENABLED,
+                        code_selector,
+                        data_selector,
+                    ));
                 }
+
+                *lock = TaskState::Running {
+                    state: RunningState::Executing,
+                    context_ptr: ctx,
+                };
+
+                ctx
             }
-            TaskState::Running { context, .. } => unsafe {
-                let ctx = context.assume_init_ref().clone();
-                drop(lock);
-                ctx.restore()
-            },
+            TaskState::Running { context_ptr, .. } => *context_ptr,
         }
     }
 }

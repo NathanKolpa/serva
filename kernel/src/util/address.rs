@@ -81,6 +81,11 @@ impl<L> Address<L> {
     pub fn as_u64(&self) -> u64 {
         self.addr as u64
     }
+
+    #[inline(always)]
+    pub fn as_usize(&self) -> usize {
+        self.addr
+    }
 }
 
 /// A wrapper for physical addresses.

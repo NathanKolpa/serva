@@ -1,19 +1,20 @@
+use core::arch::asm;
 use core::mem::MaybeUninit;
+use core::ptr::null;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use crate::arch::x86_64::constants::{MIN_STACK_SIZE, TICK_INTERRUPT_INDEX};
-use crate::arch::x86_64::context::InterruptedContext;
 use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
-use crate::arch::x86_64::interrupts::{
-    InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
-};
+use crate::arch::x86_64::interrupts::context::{InterruptStackFrame, InterruptedContext};
+use crate::arch::x86_64::interrupts::{InterruptDescriptorTable, PageFaultErrorCode};
 use crate::arch::x86_64::segmentation::*;
-use crate::arch::x86_64::PrivilegeLevel;
+use crate::arch::x86_64::{PrivilegeLevel, RFlags};
 use crate::interrupts::INTERRUPT_HANDLERS;
 use crate::util::address::VirtualAddress;
 use crate::util::sync::SpinOnce;
 use crate::util::{InitializeGuard, Singleton};
 use crate::{debug_print, debug_println};
+use crate::multi_tasking::scheduler::SCHEDULER;
 
 const DOUBLE_FAULT_IST_INDEX: usize = 0;
 
@@ -72,7 +73,7 @@ fn init_gdt() -> FullGdt {
 pub static GDT: Singleton<FullGdt> = Singleton::new(init_gdt);
 
 pub struct InterruptHandlers {
-    pub tick: fn(ctx: InterruptedContext) -> !,
+    pub tick: unsafe fn(ctx: *const InterruptedContext) -> *const InterruptedContext,
 }
 
 static mut INT_HANDLERS: MaybeUninit<InterruptHandlers> = MaybeUninit::uninit();
@@ -103,15 +104,67 @@ extern "x86-interrupt" fn page_fault_handler(
     panic!("Page fault interrupt at {addr:?} because {error_code:?}")
 }
 
-extern "x86-interrupt" fn tick(sf: InterruptStackFrame) {
-    let ctx = InterruptedContext::current(sf);
+#[no_mangle]
+unsafe extern "C" fn tick_inner(ctx: *const InterruptedContext) -> *const InterruptedContext {
+    let handlers = INT_HANDLERS.assume_init_ref();
+    let next_ctx = (handlers.tick)(ctx);
 
     PIC_CHAIN
         .lock()
         .end_of_interrupt(TICK_INTERRUPT_INDEX as u8);
 
+    next_ctx
+}
+
+#[naked]
+extern "x86-interrupt" fn tick(_frame: InterruptStackFrame) {
     unsafe {
-        (INT_HANDLERS.assume_init_ref().tick)(ctx);
+        asm!(
+            "push rax",
+            "push rbx",
+            "push rcx",
+            "push rdx",
+            "push rdi",
+            "push rsi",
+            "push rbp",
+            "push r8",
+            "push r9",
+            "push r10",
+            "push r11",
+            "push r12",
+            "push r13",
+            "push r14",
+            "push r15",
+            //
+            "mov rdi, rsp",
+            "call {handler}",
+            "cmp rax, 0",
+            "je 2f",
+            "mov rsp, rax",
+            "2:",
+            //
+            "pop r15",
+            "pop r14",
+            "pop r13",
+
+            "pop r12",
+            "pop r11",
+            "pop r10",
+            "pop r9",
+
+            "pop r8",
+            "pop rbp",
+            "pop rsi",
+            "pop rdi",
+
+            "pop rdx",
+            "pop rcx",
+            "pop rbx",
+            "pop rax",
+            "iretq",
+            handler = sym tick_inner,
+            options(noreturn)
+        )
     }
 }
 
@@ -157,6 +210,7 @@ pub fn init_x86_64(interrupt_handlers: InterruptHandlers) {
     unsafe {
         // load GDT segments
         GDT.kernel_code.load_into_cs();
+        GDT.kernel_data.load_into_ss();
         GDT.kernel_data.load_into_ds();
         GDT.tss.load_into_tss();
     }
