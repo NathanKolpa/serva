@@ -1,8 +1,10 @@
-use core::mem::MaybeUninit;
+use core::arch::asm;
+use core::mem::{MaybeUninit, transmute};
+use core::ptr::null;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use crate::arch::x86_64::constants::{MIN_STACK_SIZE, TICK_INTERRUPT_INDEX};
-use crate::arch::x86_64::context::InterruptedContext;
+use crate::arch::x86_64::context::{InterruptedContext, RegisterContext};
 use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
 use crate::arch::x86_64::interrupts::{
     InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
@@ -134,7 +136,7 @@ fn init_idt() -> InterruptDescriptorTable {
     idt.page_fault.set_stack_index(DOUBLE_FAULT_IST_INDEX); // TODO
 
     idt[TICK_INTERRUPT_INDEX].set_handler(kernel_segment, tick);
-    // idt[TICK_INTERRUPT_INDEX].set_stack_index(DOUBLE_FAULT_IST_INDEX);
+    idt[TICK_INTERRUPT_INDEX].set_stack_index(DOUBLE_FAULT_IST_INDEX);
 
     idt
 }

@@ -45,8 +45,8 @@ impl RegisterContext {
 
         unsafe {
             asm!(
-                "mov rbx, {rbx}",
-                "mov rbp, {rbp}",
+                "mov {rbx}, rbx",
+                "mov {rbp}, rbp",
                 out("r15") r15,
                 out("r14") r14,
                 out("r13") r13,
@@ -62,6 +62,7 @@ impl RegisterContext {
                 rbx = out(reg) rbx,
                 out("rax") rax,
                 rbp = out(reg) rbp,
+                options(nostack, nomem)
             )
         }
 
@@ -88,8 +89,8 @@ impl RegisterContext {
     pub unsafe fn restore(&self) {
         asm!(
             "",
-            "mov {rbx}, rbx",
-            "mov {rbp}, rbp",
+            "mov rbx, {rbx}",
+            "mov rbp, {rbp}",
             in("r15") self.r15,
             in("r14") self.r14,
             in("r13") self.r13,
@@ -132,13 +133,5 @@ impl InterruptedContext {
     ) -> ! {
         self.registers.restore();
         self.interrupt_stack_frame.iretq();
-
-        // return_from_interrupt(
-        //     self.interrupt_stack_frame.instruction_pointer,
-        //     self.interrupt_stack_frame.stack_pointer,
-        //     SegmentSelector::from(self.interrupt_stack_frame.code_segment as u16),
-        //     SegmentSelector::from(self.interrupt_stack_frame.stack_segment as u16),
-        //     self.interrupt_stack_frame.cpu_flags,
-        // )
     }
 }
