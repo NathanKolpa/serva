@@ -4,7 +4,7 @@ use core::ops::Deref;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::arch::x86_64::interrupts::context::InterruptedContext;
-pub use task::*;
+pub use thread::*;
 
 use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
@@ -12,7 +12,7 @@ use crate::util::collections::FixedVec;
 use crate::util::sync::{SpinMutex, SpinRwLock};
 use crate::util::InitializeGuard;
 
-mod task;
+mod thread;
 // tegen het advies van Remco in, schrijf ik toch mijn eigen scheduler.
 
 pub struct Scheduler {
@@ -83,7 +83,7 @@ impl Scheduler {
         let ctx = self.next_thread_context(&thread_lock.as_ref(), None);
 
         let Some(ctx) = ctx else {
-            self.exit();
+            unsafe { self.exit() };
         };
 
         unsafe { (&*ctx).interrupt_stack_frame.iretq() }
@@ -142,8 +142,8 @@ impl Scheduler {
             .map(|thread| thread.run_next())
     }
 
-    fn exit(&self) -> ! {
-        let exit_fn = unsafe { (*self.on_exit.get()).assume_init() };
+    unsafe fn exit(&self) -> ! {
+        let exit_fn =  (*self.on_exit.get()).assume_init();
         exit_fn()
     }
 }
