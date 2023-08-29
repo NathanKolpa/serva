@@ -93,8 +93,8 @@ impl Scheduler {
         &self,
         ctx: *const InterruptedContext,
     ) -> Option<*const InterruptedContext> {
+        self.initialized.assert_initialized();
         let thread_lock = self.tasks.read();
-
         self.next_thread_context(&thread_lock.as_ref(), Some(ctx))
     }
 
