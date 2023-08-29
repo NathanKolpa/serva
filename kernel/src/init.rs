@@ -4,10 +4,10 @@ use core::panic::PanicInfo;
 
 use bootloader::BootInfo;
 
-use crate::arch::x86_64::paging::PhysicalPage;
-use crate::arch::x86_64::{halt_loop, init_x86_64, ARCH_NAME, halt};
 use crate::arch::x86_64::init::GDT;
+use crate::arch::x86_64::paging::PhysicalPage;
 use crate::arch::x86_64::syscalls::{init_syscalls, SyscallArgs};
+use crate::arch::x86_64::{halt, halt_loop, init_x86_64, ARCH_NAME};
 use crate::debug::DEBUG_CHANNEL;
 use crate::interrupts::INTERRUPT_HANDLERS;
 use crate::memory::{MemoryMapper, FRAME_ALLOCATOR};

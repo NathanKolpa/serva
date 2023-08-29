@@ -249,7 +249,6 @@ impl MemoryMapper {
         unsafe { self.deref_page_table_mut(self.l4_page.addr()) }
     }
 
-
     fn deref_l4_page_table(&self) -> &PageTable {
         // Safety: As stated in the constructor, the l4_page is guaranteed to point to valid data
         unsafe { self.deref_page_table(self.l4_page.addr()) }

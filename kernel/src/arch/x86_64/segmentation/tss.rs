@@ -26,9 +26,7 @@ impl InterruptStackRef {
         let start = VirtualAddress::from(stack.as_ptr());
         let end = start + stack.len();
 
-        Self {
-            addr: end
-        }
+        Self { addr: end }
     }
 
     pub fn stack_end(&self) -> VirtualAddress {

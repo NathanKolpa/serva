@@ -1,5 +1,5 @@
-use core::arch::asm;
 use crate::arch::x86_64::RFlags;
+use core::arch::asm;
 
 #[inline]
 pub fn enable_interrupts() {

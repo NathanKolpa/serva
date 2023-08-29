@@ -10,11 +10,11 @@ use crate::arch::x86_64::interrupts::{InterruptDescriptorTable, PageFaultErrorCo
 use crate::arch::x86_64::segmentation::*;
 use crate::arch::x86_64::{PrivilegeLevel, RFlags};
 use crate::interrupts::INTERRUPT_HANDLERS;
+use crate::multi_tasking::scheduler::SCHEDULER;
 use crate::util::address::VirtualAddress;
 use crate::util::sync::SpinOnce;
 use crate::util::{InitializeGuard, Singleton};
 use crate::{debug_print, debug_println};
-use crate::multi_tasking::scheduler::SCHEDULER;
 
 const DOUBLE_FAULT_IST_INDEX: usize = 0;
 
@@ -73,7 +73,7 @@ fn init_gdt() -> FullGdt {
 pub static GDT: Singleton<FullGdt> = Singleton::new(init_gdt);
 
 pub struct InterruptHandlers {
-    pub tick: unsafe fn(ctx: *const InterruptedContext) -> *const InterruptedContext,
+    pub tick: fn(ctx: *const InterruptedContext) -> Option<*const InterruptedContext>,
 }
 
 static mut INT_HANDLERS: MaybeUninit<InterruptHandlers> = MaybeUninit::uninit();
@@ -113,7 +113,7 @@ unsafe extern "C" fn tick_inner(ctx: *const InterruptedContext) -> *const Interr
         .lock()
         .end_of_interrupt(TICK_INTERRUPT_INDEX as u8);
 
-    next_ctx
+    next_ctx.unwrap_or(null())
 }
 
 #[naked]

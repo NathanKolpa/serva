@@ -65,7 +65,7 @@ impl SegmentSelector {
     }
 }
 
-impl From<u16> for SegmentSelector  {
+impl From<u16> for SegmentSelector {
     fn from(value: u16) -> Self {
         Self { value }
     }

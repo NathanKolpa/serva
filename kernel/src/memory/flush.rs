@@ -4,7 +4,11 @@ use crate::util::collections::FixedVec;
 #[must_use]
 pub trait TableCacheFlush {
     fn flush(self);
-    fn discard(self) where Self: Sized {}
+    fn discard(self)
+    where
+        Self: Sized,
+    {
+    }
 }
 
 pub struct TableListCacheFlush {

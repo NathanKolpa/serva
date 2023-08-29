@@ -26,7 +26,7 @@ impl ThreadStack {
         const CTX_SIZE: usize = size_of::<InterruptedContext>();
 
         assert!(CTX_SIZE < self.size);
-        (self.top.as_usize() - CTX_SIZE ) as *mut InterruptedContext
+        (self.top.as_usize() - CTX_SIZE) as *mut InterruptedContext
     }
 }
 
@@ -89,7 +89,6 @@ impl Thread {
 
     pub fn run_next(&self) -> *const InterruptedContext {
         let mut lock = self.state.lock();
-
 
         match lock.deref_mut() {
             ThreadState::Starting { stack, entry_point } => {

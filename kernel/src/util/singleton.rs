@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-use crate::util::sync::{SpinOnce};
+use crate::util::sync::SpinOnce;
 
 /// A singleton value, that gets initialized on the first access.
 pub struct Singleton<T> {
@@ -12,12 +12,12 @@ impl<T> Singleton<T> {
     pub const fn new(initializer: fn() -> T) -> Self {
         Self {
             initializer,
-            value: SpinOnce::new()
+            value: SpinOnce::new(),
         }
     }
 }
 
-impl<T> Deref for Singleton<T>  {
+impl<T> Deref for Singleton<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {

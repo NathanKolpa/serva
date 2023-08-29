@@ -1,7 +1,7 @@
 use core::panic::PanicInfo;
 
-use crate::arch::x86_64::halt_loop;
 use crate::arch::x86_64::devices::qemu::{ExitCode, QEMU_DEVICE};
+use crate::arch::x86_64::halt_loop;
 
 pub trait TestCase {
     fn run(&self);

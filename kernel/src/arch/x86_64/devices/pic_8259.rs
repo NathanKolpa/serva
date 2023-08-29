@@ -112,9 +112,7 @@ impl ChainedPic8259 {
 }
 
 fn init_pic_chain() -> SpinMutex<ChainedPic8259> {
-    let mut chain = SpinMutex::new(unsafe {
-        ChainedPic8259::new(32)
-    });
+    let mut chain = SpinMutex::new(unsafe { ChainedPic8259::new(32) });
     chain.get_mut().init();
     chain
 }

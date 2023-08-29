@@ -5,16 +5,16 @@ pub use privilege::PrivilegeLevel;
 pub use rflags::*;
 
 pub mod constants;
+pub mod devices;
 pub mod init;
 mod instructions;
 pub mod interrupts;
 pub mod paging;
 pub mod port;
 mod privilege;
-pub mod segmentation;
-pub mod tables;
-pub mod syscalls;
-pub mod devices;
 mod rflags;
+pub mod segmentation;
+pub mod syscalls;
+pub mod tables;
 
 pub const ARCH_NAME: &str = "x86_64";

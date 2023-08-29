@@ -1,9 +1,10 @@
 use core::cell::UnsafeCell;
 use core::mem::MaybeUninit;
+use core::ops::Deref;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-pub use task::*;
 use crate::arch::x86_64::interrupts::context::InterruptedContext;
+pub use task::*;
 
 use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
@@ -16,7 +17,7 @@ mod task;
 
 pub struct Scheduler {
     tasks: SpinRwLock<FixedVec<10, Option<Thread>>>,
-    current: SpinMutex<Option<usize>>,
+    current: AtomicUsize,
     default_memory_map: UnsafeCell<MaybeUninit<MemoryMapper>>,
     on_exit: UnsafeCell<MaybeUninit<fn() -> !>>,
     initialized: InitializeGuard,
@@ -25,7 +26,7 @@ pub struct Scheduler {
 impl Scheduler {
     const fn new() -> Self {
         Self {
-            current: SpinMutex::new(None),
+            current: AtomicUsize::new(0),
             tasks: SpinRwLock::new(FixedVec::new()),
             default_memory_map: UnsafeCell::new(MaybeUninit::uninit()),
             on_exit: UnsafeCell::new(MaybeUninit::uninit()),
@@ -76,54 +77,69 @@ impl Scheduler {
 
     pub fn start(&self) -> ! {
         self.initialized.assert_initialized();
-        let ctx = self.next_task();
+
+        let thread_lock = self.tasks.read();
+
+        let ctx = self.next_task(&thread_lock.as_ref(), None);
+
+        let Some(ctx) = ctx else {
+            self.exit();
+        };
 
         unsafe { (&*ctx).interrupt_stack_frame.iretq() }
     }
 
-    pub unsafe fn next_context(&self, ctx: *const InterruptedContext) -> *const InterruptedContext {
-        self.save_current(ctx);
-        self.next_task()
+    pub fn next_context(
+        &self,
+        ctx: *const InterruptedContext,
+    ) -> Option<*const InterruptedContext> {
+        let thread_lock = self.tasks.read();
+
+        self.next_task(&thread_lock.as_ref(), Some(ctx))
     }
 
-    fn save_current(&self, ctx: *const InterruptedContext) {
-        let Some(current) = *self.current.lock() else {
-            return;
-        };
-
-        let tasks = self.tasks.read();
-        tasks[current].as_ref().unwrap().save_context(ctx);
+    fn save_current<L: Deref<Target = [Option<Thread>]>>(
+        &self,
+        thread_lock: &L,
+        current: usize,
+        ctx: *const InterruptedContext,
+    ) {
+        thread_lock[current].as_ref().unwrap().save_context(ctx);
     }
 
-    fn next_task(&self) -> *const InterruptedContext {
-        let tasks = self.tasks.read();
-
-        let next = {
-            let mut current = self.current.lock();
-            let start_offset = current.unwrap_or(0);
-            let diff = current.map(|_| 1).unwrap_or(0);
-            let mut next = None;
-
-            for i in (0..tasks.len()).map(|i| (i + start_offset + diff) % tasks.len()) {
-                let task = &tasks[i];
-
-                if let Some(_task) = task {// TODO: check task conds
-                    next = Some(i);
-                    break;
-                }
-            }
-
-            *current = next;
-            next
-        };
-
-        match next {
-            None => self.exit(),
-            Some(next) => {
-                let task = tasks[next].as_ref().unwrap();
-                task.run_next()
-            }
+    fn transform_into_index<L: Deref<Target = [Option<Thread>]>>(
+        thread_lock: &L,
+        current: usize,
+    ) -> Option<usize> {
+        if thread_lock.is_empty() {
+            return None;
         }
+
+        Some(current % thread_lock.len())
+    }
+
+    fn next_task<L: Deref<Target = [Option<Thread>]>>(
+        &self,
+        thread_lock: &L,
+        ctx: Option<*const InterruptedContext>,
+    ) -> Option<*const InterruptedContext> {
+        let current = self.current.fetch_add(1, Ordering::SeqCst);
+        let current_index = Self::transform_into_index(thread_lock, current);
+
+        let current_thread = current_index
+            .as_ref()
+            .and_then(|current| thread_lock[*current].as_ref());
+
+        match (ctx, current_thread) {
+            (Some(ctx), Some(current_thread)) => {
+                current_thread.save_context(ctx);
+            }
+            _ => {}
+        }
+
+        Self::transform_into_index(thread_lock.clone(), current + 1)
+            .and_then(|index| thread_lock[index].as_ref())
+            .map(|thread| thread.run_next())
     }
 
     fn exit(&self) -> ! {
@@ -133,6 +149,7 @@ impl Scheduler {
 }
 
 unsafe impl Send for Scheduler {}
+
 unsafe impl Sync for Scheduler {}
 
 pub static SCHEDULER: Scheduler = Scheduler::new();

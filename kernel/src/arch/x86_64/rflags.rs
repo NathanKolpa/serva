@@ -8,7 +8,9 @@ pub struct RFlags {
 
 impl RFlags {
     pub const NONE: RFlags = Self { value: 0 };
-    pub const INTERRUPTS_ENABLED: RFlags = Self { value: Self::INTERRUPTS_ENABLED_BIT };
+    pub const INTERRUPTS_ENABLED: RFlags = Self {
+        value: Self::INTERRUPTS_ENABLED_BIT,
+    };
 
     const INTERRUPTS_ENABLED_BIT: u64 = 1 << 9;
 

@@ -1,7 +1,7 @@
-use uart_16550::SerialPort;
 use crate::arch::x86_64::port::{Port, ReadOnly, ReadWrite, WriteOnly};
-use crate::util::Singleton;
 use crate::util::sync::SpinMutex;
+use crate::util::Singleton;
+use uart_16550::SerialPort;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]

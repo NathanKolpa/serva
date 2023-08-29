@@ -1,11 +1,11 @@
 //! Code to help with managing memory in the kernel.
 
+mod flush;
 mod frame_allocator;
 mod info;
 mod mapper;
-mod flush;
 
+pub use flush::*;
 pub use frame_allocator::*;
 pub use info::*;
 pub use mapper::*;
-pub use flush::*;
