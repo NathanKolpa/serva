@@ -105,7 +105,7 @@ impl Scheduler {
         (&*ctx).interrupt_stack_frame.iretq()
     }
 
-    pub fn bock_current(
+    pub fn block_current_and_get_next(
         &self,
         ctx: *const InterruptedContext,
     ) -> (Option<*const InterruptedContext>, ThreadUnblock) {
@@ -114,7 +114,7 @@ impl Scheduler {
         (new_ctx, unblock.unwrap())
     }
 
-    pub fn next_context(
+    pub fn get_next_context(
         &self,
         ctx: *const InterruptedContext,
     ) -> Option<*const InterruptedContext> {
