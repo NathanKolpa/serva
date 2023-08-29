@@ -54,7 +54,7 @@ fn exit() -> ! {
 fn add_test_tasks() {
     static mut STACK1: [u8; 1000] = [0; 1000];
 
-    SCHEDULER.add_kernel_task(unsafe { ThreadStack::from_slice(&mut STACK1) }, || loop {
+    SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK1) }, || loop {
         halt();
         let mut nonce = 0;
         loop {
@@ -64,7 +64,7 @@ fn add_test_tasks() {
     });
 
     static mut STACK2: [u8; 1000] = [0; 1000];
-    SCHEDULER.add_kernel_task(unsafe { ThreadStack::from_slice(&mut STACK2) }, || loop {
+    SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK2) }, || loop {
         let mut nonce = 0;
         loop {
             nonce += 1;
@@ -73,7 +73,7 @@ fn add_test_tasks() {
     });
 
     static mut STACK3: [u8; 1000] = [0; 1000];
-    SCHEDULER.add_kernel_task(unsafe { ThreadStack::from_slice(&mut STACK3) }, || loop {
+    SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK3) }, || loop {
         let mut nonce = 0;
         loop {
             nonce += 1;

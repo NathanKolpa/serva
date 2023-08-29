@@ -43,15 +43,15 @@ impl Scheduler {
         }
     }
 
-    pub fn add_kernel_task(&self, stack: ThreadStack, main: fn() -> !) {
-        self.add_task(
+    pub fn new_kernel_thread(&self, stack: ThreadStack, main: fn() -> !) {
+        self.new_thread(
             ThreadKind::Kernel,
             stack,
             VirtualAddress::from(main as *const fn()),
         )
     }
 
-    fn add_task(&self, kind: ThreadKind, stack: ThreadStack, entry_point: VirtualAddress) {
+    fn new_thread(&self, kind: ThreadKind, stack: ThreadStack, entry_point: VirtualAddress) {
         let mut task_lock = self.tasks.write();
 
         let slot;
@@ -80,7 +80,7 @@ impl Scheduler {
 
         let thread_lock = self.tasks.read();
 
-        let ctx = self.next_task(&thread_lock.as_ref(), None);
+        let ctx = self.next_thread_context(&thread_lock.as_ref(), None);
 
         let Some(ctx) = ctx else {
             self.exit();
@@ -95,7 +95,7 @@ impl Scheduler {
     ) -> Option<*const InterruptedContext> {
         let thread_lock = self.tasks.read();
 
-        self.next_task(&thread_lock.as_ref(), Some(ctx))
+        self.next_thread_context(&thread_lock.as_ref(), Some(ctx))
     }
 
     fn save_current<L: Deref<Target = [Option<Thread>]>>(
@@ -118,7 +118,7 @@ impl Scheduler {
         Some(current % thread_lock.len())
     }
 
-    fn next_task<L: Deref<Target = [Option<Thread>]>>(
+    fn next_thread_context<L: Deref<Target = [Option<Thread>]>>(
         &self,
         thread_lock: &L,
         ctx: Option<*const InterruptedContext>,
