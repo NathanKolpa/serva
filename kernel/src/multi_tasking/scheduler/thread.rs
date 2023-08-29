@@ -62,7 +62,7 @@ impl ThreadKind {
 }
 
 pub struct Thread {
-    state: SpinMutex<ThreadState>,
+    state: ThreadState,
     kind: ThreadKind,
 }
 
@@ -70,27 +70,33 @@ impl Thread {
     pub fn new(kind: ThreadKind, stack: ThreadStack, entry_point: VirtualAddress) -> Self {
         Self {
             kind,
-            state: SpinMutex::new(ThreadState::Starting { stack, entry_point }),
+            state: ThreadState::Starting { stack, entry_point },
         }
     }
 
-    pub fn save_context(&self, new_context: *const InterruptedContext) {
-        let mut lock = self.state.lock();
+    pub fn is_blocked(&self) -> bool {
+        match &self.state {
+            ThreadState::Starting { .. } => false,
+            ThreadState::Running { state, .. } => match state {
+                RunningState::Waiting => false,
+                RunningState::Blocked => true,
+                RunningState::Executing => false,
+            },
+        }
+    }
 
-        // TODO: set current state as waiting
-
-        match lock.deref_mut() {
-            ThreadState::Running { context_ptr, .. } => {
+    pub fn save_context(&mut self, new_context: *const InterruptedContext) {
+        match &mut self.state {
+            ThreadState::Running { context_ptr, state } => {
                 *context_ptr = new_context;
+                *state = RunningState::Waiting;
             }
             _ => {}
         }
     }
 
-    pub fn run_next(&self) -> *const InterruptedContext {
-        let mut lock = self.state.lock();
-
-        match lock.deref_mut() {
+    pub fn start(&mut self) -> *const InterruptedContext {
+        match &mut self.state {
             ThreadState::Starting { stack, entry_point } => {
                 let (code_selector, data_selector) = self.kind.selectors();
 
@@ -109,7 +115,7 @@ impl Thread {
                     ));
                 }
 
-                *lock = ThreadState::Running {
+                self.state = ThreadState::Running {
                     state: RunningState::Executing,
                     context_ptr: ctx,
                 };

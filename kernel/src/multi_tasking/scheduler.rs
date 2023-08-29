@@ -5,6 +5,7 @@ use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::arch::x86_64::interrupts::context::InterruptedContext;
 pub use thread::*;
+use crate::arch::x86_64::interrupts::atomic_block;
 
 use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
@@ -16,7 +17,7 @@ mod thread;
 // tegen het advies van Remco in, schrijf ik toch mijn eigen scheduler.
 
 pub struct Scheduler {
-    tasks: SpinRwLock<FixedVec<10, Option<Thread>>>,
+    tasks: SpinRwLock<FixedVec<10, Option<UnsafeCell<Thread>>>>,
     current: AtomicUsize,
     default_memory_map: UnsafeCell<MaybeUninit<MemoryMapper>>,
     on_exit: UnsafeCell<MaybeUninit<fn() -> !>>,
@@ -72,10 +73,10 @@ impl Scheduler {
             }
         }
 
-        *slot = Some(Thread::new(kind, stack, entry_point));
+        *slot = Some(UnsafeCell::new(Thread::new(kind, stack, entry_point)));
     }
 
-    pub fn start(&self) -> ! {
+    pub unsafe fn start(&self) -> ! {
         self.initialized.assert_initialized();
 
         let thread_lock = self.tasks.read();
@@ -86,7 +87,7 @@ impl Scheduler {
             unsafe { self.exit() };
         };
 
-        unsafe { (&*ctx).interrupt_stack_frame.iretq() }
+        (&*ctx).interrupt_stack_frame.iretq()
     }
 
     pub fn next_context(
@@ -94,20 +95,17 @@ impl Scheduler {
         ctx: *const InterruptedContext,
     ) -> Option<*const InterruptedContext> {
         self.initialized.assert_initialized();
-        let thread_lock = self.tasks.read();
-        self.next_thread_context(&thread_lock.as_ref(), Some(ctx))
+
+        atomic_block(|| {
+            let thread_lock = self.tasks.read();
+            // its unsafe to call the below function concurrently.
+            // however the only concurrency in the kernel is though interrupts.
+            // And because this is within an atomic block, this is safe.
+            unsafe { self.next_thread_context(&thread_lock.as_ref(), Some(ctx)) }
+        })
     }
 
-    fn save_current<L: Deref<Target = [Option<Thread>]>>(
-        &self,
-        thread_lock: &L,
-        current: usize,
-        ctx: *const InterruptedContext,
-    ) {
-        thread_lock[current].as_ref().unwrap().save_context(ctx);
-    }
-
-    fn transform_into_index<L: Deref<Target = [Option<Thread>]>>(
+    fn transform_into_index<L: Deref<Target = [Option<UnsafeCell<Thread>>]>>(
         thread_lock: &L,
         current: usize,
     ) -> Option<usize> {
@@ -118,17 +116,12 @@ impl Scheduler {
         Some(current % thread_lock.len())
     }
 
-    fn next_thread_context<L: Deref<Target = [Option<Thread>]>>(
+    unsafe fn next_thread_context<L: Deref<Target = [Option<UnsafeCell<Thread>>]>>(
         &self,
         thread_lock: &L,
         ctx: Option<*const InterruptedContext>,
     ) -> Option<*const InterruptedContext> {
-        let current = self.current.fetch_add(1, Ordering::SeqCst);
-        let current_index = Self::transform_into_index(thread_lock, current);
-
-        let current_thread = current_index
-            .as_ref()
-            .and_then(|current| thread_lock[*current].as_ref());
+        let current_thread = self.current_thread(thread_lock);
 
         match (ctx, current_thread) {
             (Some(ctx), Some(current_thread)) => {
@@ -137,17 +130,54 @@ impl Scheduler {
             _ => {}
         }
 
-        Self::transform_into_index(thread_lock.clone(), current + 1)
-            .and_then(|index| thread_lock[index].as_ref())
-            .map(|thread| thread.run_next())
+        loop {
+            let new_ctx = self.next_thread(thread_lock).map(|x| x.start());
+
+            if new_ctx.is_some() {
+                return new_ctx;
+            }
+        }
+    }
+
+    unsafe fn current_thread<L: Deref<Target = [Option<UnsafeCell<Thread>>]>>(
+        &self,
+        thread_lock: &L,
+    ) -> Option<&mut Thread> {
+        let current = self.current.load(Ordering::Relaxed);
+        let current_index = Self::transform_into_index(thread_lock, current)?;
+        let current_thread = &thread_lock[current_index].as_ref()?;
+
+        Some(&mut *current_thread.get())
+    }
+
+    unsafe fn next_thread<L: Deref<Target = [Option<UnsafeCell<Thread>>]>>(
+        &self,
+        thread_lock: &L,
+    ) -> Option<&mut Thread> {
+        let start = self.current.fetch_add(1, Ordering::SeqCst);
+        let mut next = start + 1;
+
+        loop {
+            let next_index = Self::transform_into_index(thread_lock, next)?;
+            let next_thread = thread_lock[next_index].as_ref()?;
+
+            let next_thread = &mut *next_thread.get();
+
+            if !next_thread.is_blocked() {
+                return Some(next_thread);
+            }
+
+            next = self.current.fetch_add(1, Ordering::SeqCst);
+        }
     }
 
     unsafe fn exit(&self) -> ! {
-        let exit_fn =  (*self.on_exit.get()).assume_init();
+        let exit_fn = (*self.on_exit.get()).assume_init();
         exit_fn()
     }
 }
 
+// this is safe because all inner mutable functions are marked as unsafe.
 unsafe impl Send for Scheduler {}
 
 unsafe impl Sync for Scheduler {}

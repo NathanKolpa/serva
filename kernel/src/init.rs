@@ -43,7 +43,9 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     add_test_tasks();
     debug_println!("Initialized the kernel, calling the first scheduler task.");
 
-    SCHEDULER.start()
+    unsafe {
+        SCHEDULER.start()
+    }
 }
 
 fn exit() -> ! {
@@ -60,6 +62,7 @@ fn add_test_tasks() {
         loop {
             nonce += 1;
             debug_println!("Mia {nonce}");
+            halt()
         }
     });
 
@@ -69,6 +72,7 @@ fn add_test_tasks() {
         loop {
             nonce += 1;
             debug_println!("Mauw {nonce}");
+            halt()
         }
     });
 
@@ -78,6 +82,7 @@ fn add_test_tasks() {
         loop {
             nonce += 1;
             debug_println!("LaLaLaLaLa {nonce}");
+            halt()
         }
     });
 }
