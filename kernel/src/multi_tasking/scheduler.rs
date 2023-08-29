@@ -3,9 +3,9 @@ use core::mem::MaybeUninit;
 use core::ops::Deref;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
+use crate::arch::x86_64::interrupts::atomic_block;
 use crate::arch::x86_64::interrupts::context::InterruptedContext;
 pub use thread::*;
-use crate::arch::x86_64::interrupts::atomic_block;
 
 use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
@@ -15,6 +15,21 @@ use crate::util::InitializeGuard;
 
 mod thread;
 // tegen het advies van Remco in, schrijf ik toch mijn eigen scheduler.
+
+pub struct ThreadUnblock<'a> {
+    scheduler: &'a Scheduler,
+    thread_index: usize,
+}
+
+impl Drop for ThreadUnblock<'_> {
+    fn drop(&mut self) {
+        let lock = self.scheduler.tasks.read();
+        if let Some(thread) = lock[self.thread_index].as_ref() {
+            let thread = unsafe { &mut *thread.get() };
+            thread.unblock();
+        }
+    }
+}
 
 pub struct Scheduler {
     tasks: SpinRwLock<FixedVec<10, Option<UnsafeCell<Thread>>>>,
@@ -81,7 +96,7 @@ impl Scheduler {
 
         let thread_lock = self.tasks.read();
 
-        let ctx = self.next_thread_context(&thread_lock.as_ref(), None);
+        let (ctx, _) = self.next_thread_context(&thread_lock.as_ref(), None);
 
         let Some(ctx) = ctx else {
             unsafe { self.exit() };
@@ -90,10 +105,27 @@ impl Scheduler {
         (&*ctx).interrupt_stack_frame.iretq()
     }
 
+    pub fn bock_current(
+        &self,
+        ctx: *const InterruptedContext,
+    ) -> (Option<*const InterruptedContext>, ThreadUnblock) {
+        let (new_ctx, unblock) = self.next_context_inner(ctx, false);
+
+        (new_ctx, unblock.unwrap())
+    }
+
     pub fn next_context(
         &self,
         ctx: *const InterruptedContext,
     ) -> Option<*const InterruptedContext> {
+        self.next_context_inner(ctx, false).0
+    }
+
+    fn next_context_inner(
+        &self,
+        ctx: *const InterruptedContext,
+        blocked: bool,
+    ) -> (Option<*const InterruptedContext>, Option<ThreadUnblock>) {
         self.initialized.assert_initialized();
 
         atomic_block(|| {
@@ -101,7 +133,7 @@ impl Scheduler {
             // its unsafe to call the below function concurrently.
             // however the only concurrency in the kernel is though interrupts.
             // And because this is within an atomic block, this is safe.
-            unsafe { self.next_thread_context(&thread_lock.as_ref(), Some(ctx)) }
+            unsafe { self.next_thread_context(&thread_lock.as_ref(), Some((ctx, blocked))) }
         })
     }
 
@@ -119,13 +151,21 @@ impl Scheduler {
     unsafe fn next_thread_context<L: Deref<Target = [Option<UnsafeCell<Thread>>]>>(
         &self,
         thread_lock: &L,
-        ctx: Option<*const InterruptedContext>,
-    ) -> Option<*const InterruptedContext> {
+        ctx: Option<(*const InterruptedContext, bool)>,
+    ) -> (Option<*const InterruptedContext>, Option<ThreadUnblock>) {
         let current_thread = self.current_thread(thread_lock);
+        let mut unblock = None;
 
         match (ctx, current_thread) {
-            (Some(ctx), Some(current_thread)) => {
-                current_thread.save_context(ctx);
+            (Some((ctx, blocked)), Some((current_thread, thread_index))) => {
+                current_thread.save_context(ctx, blocked);
+
+                if blocked {
+                    unblock = Some(ThreadUnblock {
+                        thread_index,
+                        scheduler: self,
+                    });
+                }
             }
             _ => {}
         }
@@ -134,7 +174,7 @@ impl Scheduler {
             let new_ctx = self.next_thread(thread_lock).map(|x| x.start());
 
             if new_ctx.is_some() {
-                return new_ctx;
+                return (new_ctx, unblock);
             }
         }
     }
@@ -142,12 +182,12 @@ impl Scheduler {
     unsafe fn current_thread<L: Deref<Target = [Option<UnsafeCell<Thread>>]>>(
         &self,
         thread_lock: &L,
-    ) -> Option<&mut Thread> {
+    ) -> Option<(&mut Thread, usize)> {
         let current = self.current.load(Ordering::Relaxed);
         let current_index = Self::transform_into_index(thread_lock, current)?;
         let current_thread = &thread_lock[current_index].as_ref()?;
 
-        Some(&mut *current_thread.get())
+        Some((&mut *current_thread.get(), current_index))
     }
 
     unsafe fn next_thread<L: Deref<Target = [Option<UnsafeCell<Thread>>]>>(

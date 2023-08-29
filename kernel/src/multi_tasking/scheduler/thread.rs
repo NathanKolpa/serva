@@ -85,11 +85,27 @@ impl Thread {
         }
     }
 
-    pub fn save_context(&mut self, new_context: *const InterruptedContext) {
+    pub fn unblock(&mut self) {
+        match &mut self.state {
+            ThreadState::Starting { .. } => {}
+            ThreadState::Running { state, .. } => match state {
+                RunningState::Blocked => {
+                    *state = RunningState::Waiting;
+                }
+                _ => {}
+            },
+        }
+    }
+
+    pub fn save_context(&mut self, new_context: *const InterruptedContext, blocked: bool) {
         match &mut self.state {
             ThreadState::Running { context_ptr, state } => {
                 *context_ptr = new_context;
-                *state = RunningState::Waiting;
+                *state = if blocked {
+                    RunningState::Blocked
+                } else {
+                    RunningState::Waiting
+                };
             }
             _ => {}
         }
