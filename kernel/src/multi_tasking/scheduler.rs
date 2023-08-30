@@ -1,42 +1,90 @@
+use bootloader::bootinfo::MemoryMap;
 use core::cell::UnsafeCell;
-use core::mem::MaybeUninit;
+use core::fmt::{Debug, Formatter};
+use core::mem::{take, MaybeUninit};
 use core::ops::Deref;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use crate::arch::x86_64::interrupts::atomic_block;
 use crate::arch::x86_64::interrupts::context::InterruptedContext;
+use crate::arch::x86_64::interrupts::{atomic_block, int3};
 pub use thread::*;
 
 use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
 use crate::util::collections::FixedVec;
-use crate::util::sync::{SpinMutex, SpinRwLock};
-use crate::util::InitializeGuard;
+use crate::util::sync::{PanicOnce, SpinMutex, SpinRwLock};
 
 mod thread;
 // tegen het advies van Remco in, schrijf ik toch mijn eigen scheduler.
 
-pub struct ThreadUnblock<'a> {
-    scheduler: &'a Scheduler,
+pub struct ThreadUnblock {
+    scheduler: &'static Scheduler,
     thread_index: usize,
 }
 
-impl Drop for ThreadUnblock<'_> {
-    fn drop(&mut self) {
+impl Debug for ThreadUnblock {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ThreadUnblock")
+            .field("thread_index", &self.thread_index)
+            .finish()
+    }
+}
+
+impl ThreadUnblock {
+    pub fn unblock_all(self) {
+        unsafe { self.unblock_all_inner() }
+    }
+
+    /// # Safety
+    /// The caller must ensure that this function is only called once.
+    unsafe fn unblock_all_inner(&self) {
         let lock = self.scheduler.tasks.read();
+
+        let get_by_index = |index| {
+            let thread = lock[index].as_ref().unwrap();
+            unsafe { &mut *thread.get() }
+        };
+
+        let mut current = get_by_index(self.thread_index);
+
+        while let Some(next) = current.unblock() {
+            current = get_by_index(next);
+        }
+
         if let Some(thread) = lock[self.thread_index].as_ref() {
             let thread = unsafe { &mut *thread.get() };
             thread.unblock();
         }
+    }
+
+    pub fn unblock_one(self) -> Option<Self> {
+        let lock = self.scheduler.tasks.read();
+        let thread = lock[self.thread_index].as_ref().unwrap();
+
+        let next = unsafe {
+            let thread = &mut *thread.get();
+
+            thread.unblock()
+        }?;
+
+        Some(Self {
+            scheduler: self.scheduler,
+            thread_index: next,
+        })
+    }
+}
+
+impl Drop for ThreadUnblock {
+    fn drop(&mut self) {
+        unsafe { self.unblock_all_inner() }
     }
 }
 
 pub struct Scheduler {
     tasks: SpinRwLock<FixedVec<10, Option<UnsafeCell<Thread>>>>,
     current: AtomicUsize,
-    default_memory_map: UnsafeCell<MaybeUninit<MemoryMapper>>,
-    on_exit: UnsafeCell<MaybeUninit<fn() -> !>>,
-    initialized: InitializeGuard,
+    default_memory_map: PanicOnce<MemoryMapper>,
+    on_exit: PanicOnce<fn() -> !>,
 }
 
 impl Scheduler {
@@ -44,19 +92,14 @@ impl Scheduler {
         Self {
             current: AtomicUsize::new(0),
             tasks: SpinRwLock::new(FixedVec::new()),
-            default_memory_map: UnsafeCell::new(MaybeUninit::uninit()),
-            on_exit: UnsafeCell::new(MaybeUninit::uninit()),
-            initialized: InitializeGuard::new(),
+            default_memory_map: PanicOnce::new(),
+            on_exit: PanicOnce::new(),
         }
     }
 
     pub fn initialize(&self, memory_map: MemoryMapper, on_exit: fn() -> !) {
-        self.initialized.guard();
-
-        unsafe {
-            *self.default_memory_map.get() = MaybeUninit::new(memory_map);
-            *self.on_exit.get() = MaybeUninit::new(on_exit);
-        }
+        self.default_memory_map.initialize_with(memory_map);
+        self.on_exit.initialize_with(on_exit);
     }
 
     pub fn new_kernel_thread(&self, stack: ThreadStack, main: fn() -> !) {
@@ -92,48 +135,55 @@ impl Scheduler {
     }
 
     pub unsafe fn start(&self) -> ! {
-        self.initialized.assert_initialized();
-
         let thread_lock = self.tasks.read();
 
-        let (ctx, _) = self.next_thread_context(&thread_lock.as_ref(), None);
+        let ctx = self.next_thread_context(&thread_lock.as_ref(), None);
 
         let Some(ctx) = ctx else {
-            unsafe { self.exit() };
+            self.exit();
         };
 
         (&*ctx).interrupt_stack_frame.iretq()
     }
 
-    pub fn block_current_and_get_next(
-        &self,
-        ctx: *const InterruptedContext,
-    ) -> (Option<*const InterruptedContext>, ThreadUnblock) {
-        let (new_ctx, unblock) = self.next_context_inner(ctx, false);
+    pub fn yield_current(&self) {
+        int3();
+    }
 
-        (new_ctx, unblock.unwrap())
+    pub fn block_and_yield_current(&'static self, output: &mut Option<ThreadUnblock>) {
+        atomic_block(|| {
+            let current = {
+                let lock = self.tasks.read();
+                unsafe { self.current_thread(&lock.as_ref()) }
+            };
+
+            if let Some((thread, thread_index)) = current {
+                let taken = thread.block();
+
+                if taken {
+                    *output = Some(ThreadUnblock {
+                        thread_index,
+                        scheduler: self,
+                    })
+                } else {
+                    *output = None;
+                }
+            };
+        });
+
+        self.yield_current();
     }
 
     pub fn get_next_context(
         &self,
         ctx: *const InterruptedContext,
     ) -> Option<*const InterruptedContext> {
-        self.next_context_inner(ctx, false).0
-    }
-
-    fn next_context_inner(
-        &self,
-        ctx: *const InterruptedContext,
-        blocked: bool,
-    ) -> (Option<*const InterruptedContext>, Option<ThreadUnblock>) {
-        self.initialized.assert_initialized();
-
         atomic_block(|| {
             let thread_lock = self.tasks.read();
             // its unsafe to call the below function concurrently.
             // however the only concurrency in the kernel is though interrupts.
             // And because this is within an atomic block, this is safe.
-            unsafe { self.next_thread_context(&thread_lock.as_ref(), Some((ctx, blocked))) }
+            unsafe { self.next_thread_context(&thread_lock.as_ref(), Some(ctx)) }
         })
     }
 
@@ -151,32 +201,18 @@ impl Scheduler {
     unsafe fn next_thread_context<L: Deref<Target = [Option<UnsafeCell<Thread>>]>>(
         &self,
         thread_lock: &L,
-        ctx: Option<(*const InterruptedContext, bool)>,
-    ) -> (Option<*const InterruptedContext>, Option<ThreadUnblock>) {
+        ctx: Option<*const InterruptedContext>,
+    ) -> Option<*const InterruptedContext> {
         let current_thread = self.current_thread(thread_lock);
-        let mut unblock = None;
 
         match (ctx, current_thread) {
-            (Some((ctx, blocked)), Some((current_thread, thread_index))) => {
-                current_thread.save_context(ctx, blocked);
-
-                if blocked {
-                    unblock = Some(ThreadUnblock {
-                        thread_index,
-                        scheduler: self,
-                    });
-                }
+            (Some(ctx), Some((current_thread, thread_index))) => {
+                current_thread.save_context(ctx);
             }
             _ => {}
         }
 
-        loop {
-            let new_ctx = self.next_thread(thread_lock).map(|x| x.start());
-
-            if new_ctx.is_some() {
-                return (new_ctx, unblock);
-            }
-        }
+        self.next_thread(thread_lock).map(|x| x.start())
     }
 
     unsafe fn current_thread<L: Deref<Target = [Option<UnsafeCell<Thread>>]>>(
@@ -194,7 +230,7 @@ impl Scheduler {
         &self,
         thread_lock: &L,
     ) -> Option<&mut Thread> {
-        let start = self.current.fetch_add(1, Ordering::SeqCst);
+        let start = self.current.fetch_add(1, Ordering::AcqRel);
         let mut next = start + 1;
 
         loop {
@@ -207,13 +243,12 @@ impl Scheduler {
                 return Some(next_thread);
             }
 
-            next = self.current.fetch_add(1, Ordering::SeqCst);
+            next = self.current.fetch_add(1, Ordering::AcqRel);
         }
     }
 
-    unsafe fn exit(&self) -> ! {
-        let exit_fn = (*self.on_exit.get()).assume_init();
-        exit_fn()
+    fn exit(&self) -> ! {
+        (self.on_exit)();
     }
 }
 

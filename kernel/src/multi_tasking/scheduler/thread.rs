@@ -6,6 +6,7 @@ use crate::arch::x86_64::interrupts::context::{InterruptStackFrame, InterruptedC
 use crate::arch::x86_64::segmentation::SegmentSelector;
 use crate::arch::x86_64::RFlags;
 use crate::memory::MemoryMapper;
+use crate::multi_tasking::scheduler::ThreadUnblock;
 use crate::util::address::VirtualAddress;
 use crate::util::sync::SpinMutex;
 
@@ -43,7 +44,7 @@ pub enum ThreadState {
 
 pub enum RunningState {
     Waiting,
-    Blocked,
+    Blocked { next_blocked: Option<usize> },
     Executing,
 }
 
@@ -79,33 +80,57 @@ impl Thread {
             ThreadState::Starting { .. } => false,
             ThreadState::Running { state, .. } => match state {
                 RunningState::Waiting => false,
-                RunningState::Blocked => true,
+                RunningState::Blocked { .. } => true,
                 RunningState::Executing => false,
             },
         }
     }
 
-    pub fn unblock(&mut self) {
+    pub fn unblock(&mut self) -> Option<usize> {
         match &mut self.state {
             ThreadState::Starting { .. } => {}
             ThreadState::Running { state, .. } => match state {
-                RunningState::Blocked => {
+                RunningState::Blocked { next_blocked }  => {
+                    let next_blocked = *next_blocked;
                     *state = RunningState::Waiting;
+                    return next_blocked;
                 }
                 _ => {}
             },
         }
+
+        None
     }
 
-    pub fn save_context(&mut self, new_context: *const InterruptedContext, blocked: bool) {
+    pub fn block(&mut self) -> bool {
+        match &mut self.state {
+            ThreadState::Running { state, .. } => {
+                match state {
+                    RunningState::Waiting | RunningState::Executing => {
+                        *state = RunningState::Blocked { next_blocked: None };
+                        return true;
+                    },
+                    _ => {}
+                }
+            },
+            _ => {}
+        }
+
+        false
+    }
+
+    pub fn save_context(&mut self, new_context: *const InterruptedContext) {
         match &mut self.state {
             ThreadState::Running { context_ptr, state } => {
                 *context_ptr = new_context;
-                *state = if blocked {
-                    RunningState::Blocked
-                } else {
-                    RunningState::Waiting
-                };
+
+                match state {
+                    RunningState::Waiting => {}
+                    RunningState::Blocked { .. } => {}
+                    RunningState::Executing => {
+                        *state = RunningState::Waiting;
+                    }
+                }
             }
             _ => {}
         }

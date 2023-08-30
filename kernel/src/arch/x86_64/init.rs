@@ -9,12 +9,9 @@ use crate::arch::x86_64::interrupts::context::{InterruptStackFrame, InterruptedC
 use crate::arch::x86_64::interrupts::{InterruptDescriptorTable, PageFaultErrorCode};
 use crate::arch::x86_64::segmentation::*;
 use crate::arch::x86_64::{PrivilegeLevel, RFlags};
-use crate::interrupts::INTERRUPT_HANDLERS;
-use crate::multi_tasking::scheduler::SCHEDULER;
 use crate::util::address::VirtualAddress;
-use crate::util::sync::SpinOnce;
-use crate::util::{InitializeGuard, Singleton};
-use crate::{debug_print, debug_println};
+use crate::util::Singleton;
+use crate::util::sync::PanicOnce;
 
 const DOUBLE_FAULT_IST_INDEX: usize = 0;
 
@@ -76,7 +73,7 @@ pub struct InterruptHandlers {
     pub tick: fn(ctx: *const InterruptedContext) -> Option<*const InterruptedContext>,
 }
 
-static mut INT_HANDLERS: MaybeUninit<InterruptHandlers> = MaybeUninit::uninit();
+static INT_HANDLERS: PanicOnce<InterruptHandlers> = PanicOnce::new();
 
 extern "x86-interrupt" fn double_fault_handler(frame: InterruptStackFrame, error_code: u64) -> ! {
     panic!("Double fault: {error_code} {frame:?}")
@@ -106,8 +103,7 @@ extern "x86-interrupt" fn page_fault_handler(
 
 #[no_mangle]
 unsafe extern "C" fn tick_inner(ctx: *const InterruptedContext) -> *const InterruptedContext {
-    let handlers = INT_HANDLERS.assume_init_ref();
-    let next_ctx = (handlers.tick)(ctx);
+    let next_ctx = (INT_HANDLERS.tick)(ctx);
 
     PIC_CHAIN
         .lock()
@@ -186,24 +182,17 @@ fn init_idt() -> InterruptDescriptorTable {
         .set_handler(kernel_segment, page_fault_handler);
     idt.page_fault.set_stack_index(DOUBLE_FAULT_IST_INDEX); // TODO
 
+    idt.breakpoint.set_handler(kernel_segment, tick);
     idt[TICK_INTERRUPT_INDEX].set_handler(kernel_segment, tick);
-    // idt[TICK_INTERRUPT_INDEX].set_stack_index(DOUBLE_FAULT_IST_INDEX);
 
     idt
 }
 
 pub static IDT: Singleton<InterruptDescriptorTable> = Singleton::new(init_idt);
 
-static INITIALIZED: InitializeGuard = InitializeGuard::new();
-
 /// Initialize x86_64-specific components for the kernel.
 pub fn init_x86_64(interrupt_handlers: InterruptHandlers) {
-    INITIALIZED.guard();
-
-    unsafe {
-        let handlers = &mut INT_HANDLERS;
-        handlers.write(interrupt_handlers);
-    }
+    INT_HANDLERS.initialize_with(interrupt_handlers);
 
     GDT.table.load();
 

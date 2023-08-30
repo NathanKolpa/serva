@@ -8,10 +8,12 @@ use crate::arch::x86_64::init::GDT;
 use crate::arch::x86_64::paging::PhysicalPage;
 use crate::arch::x86_64::syscalls::{init_syscalls, SyscallArgs};
 use crate::arch::x86_64::{halt, halt_loop, init_x86_64, ARCH_NAME};
+use crate::arch::x86_64::interrupts::atomic_block;
 use crate::debug::DEBUG_CHANNEL;
 use crate::interrupts::INTERRUPT_HANDLERS;
 use crate::memory::{MemoryMapper, FRAME_ALLOCATOR};
-use crate::multi_tasking::scheduler::{ThreadStack, SCHEDULER};
+use crate::multi_tasking::scheduler::{ThreadStack, SCHEDULER, ThreadUnblock};
+use crate::multi_tasking::sync::Mutex;
 
 /// The kernel panic handler.
 pub fn handle_panic(info: &PanicInfo) -> ! {
@@ -54,35 +56,46 @@ fn exit() -> ! {
 }
 
 fn add_test_tasks() {
+
+    static TEST_MUTEX: Mutex<usize> = Mutex::new(0);
     static mut STACK1: [u8; 1000] = [0; 1000];
 
     SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK1) }, || loop {
-        halt();
-        let mut nonce = 0;
-        loop {
-            nonce += 1;
-            debug_println!("Mia {nonce}");
-            halt()
-        }
+        // debug_println!("Idle tick");
+        halt()
     });
+
 
     static mut STACK2: [u8; 1000] = [0; 1000];
     SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK2) }, || loop {
-        let mut nonce = 0;
-        loop {
-            nonce += 1;
-            debug_println!("Mauw {nonce}");
-            halt()
-        }
+        let mut lock = TEST_MUTEX.lock();
+        *lock += 1;
+
+        debug_println!("Lock {}", *lock);
+        drop(lock);
+        SCHEDULER.yield_current();
     });
 
     static mut STACK3: [u8; 1000] = [0; 1000];
     SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK3) }, || loop {
         let mut nonce = 0;
+        let mut test_lock = None;
+
         loop {
             nonce += 1;
-            debug_println!("LaLaLaLaLa {nonce}");
-            halt()
+
+            if nonce == 10 && test_lock.is_none() {
+                debug_println!("Locking mutex!!");
+                test_lock = Some(TEST_MUTEX.lock());
+                debug_println!("Locked!");
+            } else if nonce == 12 && test_lock.is_some() {
+                debug_println!("Unlocking!");
+                test_lock = None;
+            } else {
+                debug_println!("Not locking");
+            }
+
+            SCHEDULER.yield_current();
         }
     });
 }
