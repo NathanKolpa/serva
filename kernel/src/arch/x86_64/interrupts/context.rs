@@ -8,21 +8,21 @@ use crate::util::address::VirtualAddress;
 #[repr(C)]
 #[derive(Clone, Debug, Default)]
 pub struct RegisterContext {
-    pub r15: usize,
-    pub r14: usize,
-    pub r13: usize,
-    pub r12: usize,
-    pub r11: usize,
-    pub r10: usize,
-    pub r9: usize,
-    pub r8: usize,
-    pub rbp: usize,
-    pub rsi: usize,
-    pub rdi: usize,
-    pub rdx: usize,
-    pub rcx: usize,
-    pub rbx: usize,
-    pub rax: usize,
+    pub r15: u64,
+    pub r14: u64,
+    pub r13: u64,
+    pub r12: u64,
+    pub r11: u64,
+    pub r10: u64,
+    pub r9: u64,
+    pub r8: u64,
+    pub rbp: u64,
+    pub rsi: u64,
+    pub rdi: u64,
+    pub rdx: u64,
+    pub rcx: u64,
+    pub rbx: u64,
+    pub rax: u64,
 }
 
 #[repr(C)]
@@ -81,7 +81,23 @@ pub struct InterruptedContext {
 impl InterruptedContext {
     pub fn start_new(interrupt_stack_frame: InterruptStackFrame) -> Self {
         Self {
-            registers: Default::default(),
+            registers: RegisterContext {
+                r15: 0,
+                r14: 0,
+                r13: 0,
+                r12: 0,
+                r11: 0,
+                r10: 0,
+                r9: 0,
+                r8: 0,
+                rbp: interrupt_stack_frame.stack_pointer.as_u64(),
+                rsi: 0,
+                rdi: 0,
+                rdx: 0,
+                rcx: 0,
+                rbx: 0,
+                rax: 0,
+            },
             interrupt_stack_frame,
         }
     }

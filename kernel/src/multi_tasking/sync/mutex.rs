@@ -1,15 +1,13 @@
-use crate::multi_tasking::scheduler::{ThreadUnblock, SCHEDULER};
-use crate::util::sync::SpinMutex;
 use core::cell::UnsafeCell;
-use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
+use crate::arch::x86_64::interrupts::atomic_block;
+use crate::multi_tasking::scheduler::{ThreadUnblock, SCHEDULER};
+use crate::util::sync::SpinMutex;
+
 const LOCKED: bool = true;
 const UNLOCKED: bool = false;
-
-const UNBLOCK_SET: u8 = 0;
-const UNBLOCK_UNSET: u8 = 1;
 
 pub struct MutexLockGuard<'a, T> {
     parent: &'a Mutex<T>,
@@ -38,8 +36,7 @@ impl<'a, T> Drop for MutexLockGuard<'a, T> {
 pub struct Mutex<T> {
     data: UnsafeCell<T>,
     locked: AtomicBool,
-    unblock_state: AtomicU8,
-    unblock: UnsafeCell<Option<ThreadUnblock>>,
+    unblock: SpinMutex<Option<ThreadUnblock>>,
 }
 
 unsafe impl<T> Send for Mutex<T> where T: Send + Sync {}
@@ -50,8 +47,7 @@ impl<T> Mutex<T> {
         Self {
             data: UnsafeCell::new(value),
             locked: AtomicBool::new(UNLOCKED),
-            unblock_state: AtomicU8::new(UNBLOCK_UNSET),
-            unblock: UnsafeCell::new(None),
+            unblock: SpinMutex::new(None),
         }
     }
 
@@ -67,26 +63,19 @@ impl<T> Mutex<T> {
         MutexLockGuard { parent: self }
     }
 
+    #[inline(never)]
     fn wait_until_unlock(&self) {
-        if self
-            .unblock_state
-            .compare_exchange_weak(
-                UNBLOCK_UNSET,
-                UNBLOCK_SET,
-                Ordering::Acquire,
-                Ordering::Relaxed,
-            )
-            .is_ok()
-        {
-            debug_println!("Wait utill unlock");
+        atomic_block(|| {
+            let mut unblock_lock = self.unblock.lock();
 
-            unsafe {
-                let unblock = (&mut *self.unblock.get());
-                SCHEDULER.block_and_yield_current(unblock);
+            match unblock_lock.deref_mut() {
+                None => *unblock_lock = SCHEDULER.block_next_tick(),
+                Some(unblock) => unblock.block_with_after_next_tick()
             }
 
-            debug_println!("Unlocked!");
-        }
+            drop(unblock_lock);
+            SCHEDULER.yield_current();
+        });
     }
 
     fn unlock(&self) {
@@ -95,18 +84,12 @@ impl<T> Mutex<T> {
     }
 
     fn unblock_waiting(&self) {
-        if self.unblock_state.load(Ordering::Relaxed) == UNBLOCK_SET {
-            unsafe {
-                let current_unblock = (&mut *self.unblock.get());
+        let mut unblock_lock = self.unblock.lock();
 
-                debug_println!("Unlock {current_unblock:?}");
 
-                if let Some(unblock) = current_unblock.take() {
-                    *current_unblock = unblock.unblock_one();
-                }
-            }
+        if let Some(unblock) = unblock_lock.take() {
+            *unblock_lock = unblock.unblock_one();
 
-            self.unblock_state.store(UNBLOCK_UNSET, Ordering::Release);
         }
     }
 }

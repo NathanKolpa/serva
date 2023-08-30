@@ -42,7 +42,7 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     SCHEDULER.initialize(memory_mapper, exit);
 
-    add_test_tasks();
+    test_mutex();
     debug_println!("Initialized the kernel, calling the first scheduler task.");
 
     unsafe {
@@ -55,47 +55,33 @@ fn exit() -> ! {
     halt_loop()
 }
 
-fn add_test_tasks() {
+fn test_mutex() {
 
     static TEST_MUTEX: Mutex<usize> = Mutex::new(0);
-    static mut STACK1: [u8; 1000] = [0; 1000];
-
-    SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK1) }, || loop {
-        // debug_println!("Idle tick");
-        halt()
-    });
-
 
     static mut STACK2: [u8; 1000] = [0; 1000];
     SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK2) }, || loop {
-        let mut lock = TEST_MUTEX.lock();
-        *lock += 1;
+        debug_println!("#1 Try to lock");
+        let lock = TEST_MUTEX.lock();
+        debug_println!("#1 Acquired lock");
+        halt();
 
-        debug_println!("Lock {}", *lock);
+
         drop(lock);
-        SCHEDULER.yield_current();
+        debug_println!("#1 Dropped lock");
+
+        halt();
     });
 
     static mut STACK3: [u8; 1000] = [0; 1000];
     SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK3) }, || loop {
-        let mut nonce = 0;
-        let mut test_lock = None;
+        debug_println!("#2 Try to lock");
+        let lock = TEST_MUTEX.lock();
+        debug_println!("#2 Acquired lock");
+        halt();
 
-        loop {
-            nonce += 1;
-
-            if nonce == 10 && test_lock.is_none() {
-                debug_println!("Locking mutex!!");
-                test_lock = Some(TEST_MUTEX.lock());
-                debug_println!("Locked!");
-            } else if nonce == 12 && test_lock.is_some() {
-                debug_println!("Unlocking!");
-                test_lock = None;
-            } else {
-                debug_println!("Not locking");
-            }
-
-            SCHEDULER.yield_current();
-        }
+        drop(lock);
+        debug_println!("#2 Dropped lock");
+        halt();
     });
 }

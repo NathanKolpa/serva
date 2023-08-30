@@ -1,14 +1,16 @@
-use bootloader::bootinfo::MemoryMap;
 use core::cell::UnsafeCell;
 use core::fmt::{Debug, Formatter};
 use core::mem::{take, MaybeUninit};
 use core::ops::Deref;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use crate::arch::x86_64::interrupts::context::InterruptedContext;
-use crate::arch::x86_64::interrupts::{atomic_block, int3};
+use bootloader::bootinfo::MemoryMap;
+
 pub use thread::*;
 
+use crate::arch::x86_64::halt;
+use crate::arch::x86_64::interrupts::context::InterruptedContext;
+use crate::arch::x86_64::interrupts::{atomic_block, int3};
 use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
 use crate::util::collections::FixedVec;
@@ -71,6 +73,10 @@ impl ThreadUnblock {
             scheduler: self.scheduler,
             thread_index: next,
         })
+    }
+
+    pub fn block_with_after_next_tick(&mut self) {
+        todo!()
     }
 }
 
@@ -150,28 +156,26 @@ impl Scheduler {
         int3();
     }
 
-    pub fn block_and_yield_current(&'static self, output: &mut Option<ThreadUnblock>) {
+    pub fn block_next_tick(&'static self) -> Option<ThreadUnblock> {
         atomic_block(|| {
             let current = {
                 let lock = self.tasks.read();
                 unsafe { self.current_thread(&lock.as_ref()) }
             };
 
-            if let Some((thread, thread_index)) = current {
+            current.and_then(|(thread, thread_index)| {
                 let taken = thread.block();
 
                 if taken {
-                    *output = Some(ThreadUnblock {
+                    Some(ThreadUnblock {
                         thread_index,
                         scheduler: self,
                     })
                 } else {
-                    *output = None;
+                    None
                 }
-            };
-        });
-
-        self.yield_current();
+            })
+        })
     }
 
     pub fn get_next_context(
