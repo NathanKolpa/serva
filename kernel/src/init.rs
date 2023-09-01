@@ -1,5 +1,3 @@
-use core::arch::asm;
-use core::hint::spin_loop;
 use core::panic::PanicInfo;
 
 use bootloader::BootInfo;
@@ -12,7 +10,7 @@ use crate::arch::x86_64::interrupts::atomic_block;
 use crate::debug::DEBUG_CHANNEL;
 use crate::interrupts::INTERRUPT_HANDLERS;
 use crate::memory::{MemoryMapper, FRAME_ALLOCATOR};
-use crate::multi_tasking::scheduler::{ThreadStack, SCHEDULER, ThreadUnblock};
+use crate::multi_tasking::scheduler::{ThreadStack, SCHEDULER};
 use crate::multi_tasking::sync::Mutex;
 
 /// The kernel panic handler.
@@ -42,12 +40,10 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     SCHEDULER.initialize(memory_mapper, exit);
 
-    test_mutex();
+    test_problem();
     debug_println!("Initialized the kernel, calling the first scheduler task.");
 
-    unsafe {
-        SCHEDULER.start()
-    }
+    unsafe { SCHEDULER.start() }
 }
 
 fn exit() -> ! {
@@ -55,33 +51,24 @@ fn exit() -> ! {
     halt_loop()
 }
 
-fn test_mutex() {
-
-    static TEST_MUTEX: Mutex<usize> = Mutex::new(0);
+fn test_problem() {
+    static mut STACK1: [u8; 1000] = [0; 1000];
+    SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK1) }, thread_1);
 
     static mut STACK2: [u8; 1000] = [0; 1000];
-    SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK2) }, || loop {
-        debug_println!("#1 Try to lock");
-        let lock = TEST_MUTEX.lock();
-        debug_println!("#1 Acquired lock");
-        halt();
+    SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK2) }, thread_2);
+}
 
+fn thread_1() -> ! {
+    loop {
+        debug_println!("#1");
+        SCHEDULER.yield_current();
+    }
+}
 
-        drop(lock);
-        debug_println!("#1 Dropped lock");
-
-        halt();
-    });
-
-    static mut STACK3: [u8; 1000] = [0; 1000];
-    SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK3) }, || loop {
-        debug_println!("#2 Try to lock");
-        let lock = TEST_MUTEX.lock();
-        debug_println!("#2 Acquired lock");
-        halt();
-
-        drop(lock);
-        debug_println!("#2 Dropped lock");
-        halt();
-    });
+fn thread_2() -> ! {
+    loop {
+        debug_println!("#2");
+        SCHEDULER.yield_current();
+    }
 }

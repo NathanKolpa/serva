@@ -1,14 +1,11 @@
-use core::mem::{size_of, MaybeUninit};
-use core::ops::{Deref, DerefMut};
+use core::mem::size_of;
 
 use crate::arch::x86_64::init::GDT;
 use crate::arch::x86_64::interrupts::context::{InterruptStackFrame, InterruptedContext};
 use crate::arch::x86_64::segmentation::SegmentSelector;
 use crate::arch::x86_64::RFlags;
 use crate::memory::MemoryMapper;
-use crate::multi_tasking::scheduler::ThreadUnblock;
 use crate::util::address::VirtualAddress;
-use crate::util::sync::SpinMutex;
 
 pub struct ThreadStack {
     size: usize,
@@ -22,13 +19,6 @@ impl ThreadStack {
             top: VirtualAddress::from(slice.as_ptr().wrapping_add(slice.len())),
         }
     }
-
-    pub fn ctx_mut(&mut self) -> *mut InterruptedContext {
-        const CTX_SIZE: usize = size_of::<InterruptedContext>();
-
-        assert!(CTX_SIZE < self.size);
-        (self.top.as_usize() - CTX_SIZE) as *mut InterruptedContext
-    }
 }
 
 pub enum ThreadState {
@@ -38,7 +28,7 @@ pub enum ThreadState {
     },
     Running {
         state: RunningState,
-        context_ptr: *const InterruptedContext,
+        context_ptr: InterruptedContext,
     },
 }
 
@@ -90,7 +80,7 @@ impl Thread {
         match &mut self.state {
             ThreadState::Starting { .. } => {}
             ThreadState::Running { state, .. } => match state {
-                RunningState::Blocked { next_blocked }  => {
+                RunningState::Blocked { next_blocked } => {
                     let next_blocked = *next_blocked;
                     *state = RunningState::Waiting;
                     return next_blocked;
@@ -104,14 +94,12 @@ impl Thread {
 
     pub fn block(&mut self) -> bool {
         match &mut self.state {
-            ThreadState::Running { state, .. } => {
-                match state {
-                    RunningState::Waiting | RunningState::Executing => {
-                        *state = RunningState::Blocked { next_blocked: None };
-                        return true;
-                    },
-                    _ => {}
+            ThreadState::Running { state, .. } => match state {
+                RunningState::Waiting | RunningState::Executing => {
+                    *state = RunningState::Blocked { next_blocked: None };
+                    return true;
                 }
+                _ => {}
             },
             _ => {}
         }
@@ -119,7 +107,7 @@ impl Thread {
         false
     }
 
-    pub fn save_context(&mut self, new_context: *const InterruptedContext) {
+    pub fn save_context(&mut self, new_context: InterruptedContext) {
         match &mut self.state {
             ThreadState::Running { context_ptr, state } => {
                 *context_ptr = new_context;
@@ -136,34 +124,41 @@ impl Thread {
         }
     }
 
-    pub fn start(&mut self) -> *const InterruptedContext {
-        match &mut self.state {
+    pub fn start(&mut self) -> &InterruptedContext {
+        let mut new_stack = None;
+        let mut new_entry_point = None;
+
+        match &self.state {
             ThreadState::Starting { stack, entry_point } => {
-                let (code_selector, data_selector) = self.kind.selectors();
+                new_stack = Some(ThreadStack {
+                    top: stack.top,
+                    size: stack.size
+                });
+                new_entry_point = Some(*entry_point);
+            },
+            _ => {}
+        }
 
-                let stack_top = stack.top;
-                let entry_point = *entry_point;
+        if let (Some(stack_top), Some(entry_point)) = (new_stack, new_entry_point) {
+            debug_println!("Init");
+            let (code_selector, data_selector) = self.kind.selectors();
 
-                let ctx = stack.ctx_mut();
+            self.state = ThreadState::Running {
+                state: RunningState::Executing,
+                context_ptr:InterruptedContext::start_new(InterruptStackFrame::new(
+                    entry_point,
+                    stack_top.top,
+                    RFlags::NONE,
+                    code_selector,
+                    data_selector,
+                )),
+            };
+        }
 
-                unsafe {
-                    *ctx = InterruptedContext::start_new(InterruptStackFrame::new(
-                        entry_point,
-                        stack_top,
-                        RFlags::INTERRUPTS_ENABLED,
-                        code_selector,
-                        data_selector,
-                    ));
-                }
 
-                self.state = ThreadState::Running {
-                    state: RunningState::Executing,
-                    context_ptr: ctx,
-                };
-
-                ctx
-            }
-            ThreadState::Running { context_ptr, .. } => *context_ptr,
+        match &self.state {
+            ThreadState::Running { context_ptr, .. } => context_ptr,
+            _ => unreachable!()
         }
     }
 }

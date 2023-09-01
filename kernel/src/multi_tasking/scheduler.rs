@@ -1,20 +1,18 @@
 use core::cell::UnsafeCell;
 use core::fmt::{Debug, Formatter};
-use core::mem::{take, MaybeUninit};
 use core::ops::Deref;
-use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
-use bootloader::bootinfo::MemoryMap;
 
 pub use thread::*;
-
 use crate::arch::x86_64::halt;
+
 use crate::arch::x86_64::interrupts::context::InterruptedContext;
-use crate::arch::x86_64::interrupts::{atomic_block, int3};
+use crate::arch::x86_64::interrupts::{atomic_block, enable_interrupts, int3};
 use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
 use crate::util::collections::FixedVec;
-use crate::util::sync::{PanicOnce, SpinMutex, SpinRwLock};
+use crate::util::sync::{PanicOnce, SpinRwLock};
 
 mod thread;
 // tegen het advies van Remco in, schrijf ik toch mijn eigen scheduler.
@@ -141,15 +139,8 @@ impl Scheduler {
     }
 
     pub unsafe fn start(&self) -> ! {
-        let thread_lock = self.tasks.read();
-
-        let ctx = self.next_thread_context(&thread_lock.as_ref(), None);
-
-        let Some(ctx) = ctx else {
-            self.exit();
-        };
-
-        (&*ctx).interrupt_stack_frame.iretq()
+        self.yield_current();
+        unreachable!()
     }
 
     pub fn yield_current(&self) {
@@ -180,14 +171,14 @@ impl Scheduler {
 
     pub fn get_next_context(
         &self,
-        ctx: *const InterruptedContext,
-    ) -> Option<*const InterruptedContext> {
+        ctx: InterruptedContext,
+    ) -> &InterruptedContext {
         atomic_block(|| {
             let thread_lock = self.tasks.read();
             // its unsafe to call the below function concurrently.
             // however the only concurrency in the kernel is though interrupts.
             // And because this is within an atomic block, this is safe.
-            unsafe { self.next_thread_context(&thread_lock.as_ref(), Some(ctx)) }
+            unsafe { self.next_thread_context(&thread_lock.as_ref(), Some(ctx)) }.expect("Handle this tho")
         })
     }
 
@@ -205,8 +196,8 @@ impl Scheduler {
     unsafe fn next_thread_context<L: Deref<Target = [Option<UnsafeCell<Thread>>]>>(
         &self,
         thread_lock: &L,
-        ctx: Option<*const InterruptedContext>,
-    ) -> Option<*const InterruptedContext> {
+        ctx: Option<InterruptedContext>,
+    ) -> Option<&InterruptedContext> {
         let current_thread = self.current_thread(thread_lock);
 
         match (ctx, current_thread) {

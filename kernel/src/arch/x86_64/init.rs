@@ -70,7 +70,7 @@ fn init_gdt() -> FullGdt {
 pub static GDT: Singleton<FullGdt> = Singleton::new(init_gdt);
 
 pub struct InterruptHandlers {
-    pub tick: fn(ctx: *const InterruptedContext) -> Option<*const InterruptedContext>,
+    pub tick: fn(ctx: InterruptedContext) -> &'static InterruptedContext,
 }
 
 static INT_HANDLERS: PanicOnce<InterruptHandlers> = PanicOnce::new();
@@ -103,13 +103,13 @@ extern "x86-interrupt" fn page_fault_handler(
 
 #[no_mangle]
 unsafe extern "C" fn tick_inner(ctx: *const InterruptedContext) -> *const InterruptedContext {
-    let next_ctx = (INT_HANDLERS.tick)(ctx);
+    let next_ctx = (INT_HANDLERS.tick)((*ctx).clone());
 
-    PIC_CHAIN
-        .lock()
-        .end_of_interrupt(TICK_INTERRUPT_INDEX as u8);
+    // PIC_CHAIN
+    //     .lock()
+    //     .end_of_interrupt(TICK_INTERRUPT_INDEX as u8);
 
-    next_ctx.unwrap_or(null())
+    next_ctx
 }
 
 #[naked]
@@ -183,7 +183,9 @@ fn init_idt() -> InterruptDescriptorTable {
     idt.page_fault.set_stack_index(DOUBLE_FAULT_IST_INDEX); // TODO
 
     idt.breakpoint.set_handler(kernel_segment, tick);
+    idt.breakpoint.set_stack_index(DOUBLE_FAULT_IST_INDEX);
     idt[TICK_INTERRUPT_INDEX].set_handler(kernel_segment, tick);
+    idt[TICK_INTERRUPT_INDEX].set_stack_index(DOUBLE_FAULT_IST_INDEX);
 
     idt
 }
