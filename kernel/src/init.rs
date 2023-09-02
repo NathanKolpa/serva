@@ -14,6 +14,7 @@ use crate::arch::x86_64::interrupts::int3;
 use crate::debug::DEBUG_CHANNEL;
 use crate::memory::{MemoryMapper, FRAME_ALLOCATOR};
 use crate::multi_tasking::scheduler::{ThreadStack, SCHEDULER};
+use crate::multi_tasking::sync::Mutex;
 use crate::util::address::VirtualAddress;
 
 /// The kernel panic handler.
@@ -59,20 +60,42 @@ static mut STACK2: [u8; 4096] = [0; 4096];
 
 fn test_problem() {
     SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK1) }, thread_1);
-
     SCHEDULER.new_kernel_thread(unsafe { ThreadStack::from_slice(&mut STACK2) }, thread_2);
 }
 
+static TEST_MUTEX: Mutex<i32> = Mutex::new(0);
+
 fn thread_1() -> ! {
     loop {
-        debug_println!("Test #1");
+        debug_println!("#1 Try to acquire lock");
+        let mut lock = TEST_MUTEX.lock();
+
+        debug_println!("#1 Acquired lock, with value {}. Yielding...", *lock);
+
+        halt();
+
+        *lock += 1;
+
+        drop(lock);
+        debug_println!("#1 Dropped lock. Yielding...");
         halt();
     }
 }
 
 fn thread_2() -> ! {
     loop {
-        debug_println!("Test #2");
+        debug_println!("#2 Try to acquire lock");
+        let mut lock = TEST_MUTEX.lock();
+
+
+        debug_println!("#2 Acquired lock, with value {}. Yielding...", *lock);
+
+        halt();
+
+        *lock += 1;
+
+        drop(lock);
+        debug_println!("#2 Dropped lock. Yielding...");
         halt();
     }
 }
