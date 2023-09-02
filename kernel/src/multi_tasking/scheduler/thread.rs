@@ -16,7 +16,7 @@ impl ThreadStack {
     pub fn from_slice(slice: &'static mut [u8]) -> Self {
         Self {
             size: slice.len(),
-            top: VirtualAddress::from(slice.as_ptr().wrapping_add(slice.len())),
+            top: VirtualAddress::from(slice.as_ptr()) + slice.len(),
         }
     }
 }
