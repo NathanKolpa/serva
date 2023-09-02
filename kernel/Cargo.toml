@@ -10,7 +10,7 @@ uart_16550 = "0.3.0"
 
 [package.metadata.bootimage]
 run-args = [
-#    "-S",
+    "-S",
     "-gdb", "tcp::1234",
     "-serial", "stdio",
     "-display", "none"
