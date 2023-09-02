@@ -76,7 +76,9 @@ impl ThreadUnblock {
     }
 
     pub fn block_with_after_next_tick(&mut self) {
-        todo!()
+        if let Some(thread_index) = self.scheduler.block_next_tick_inner(Some(self.thread_index)) {
+            self.thread_index = thread_index;
+        }
     }
 }
 
@@ -157,6 +159,14 @@ impl Scheduler {
     }
 
     pub fn block_next_tick(&'static self) -> Option<ThreadUnblock> {
+        self.block_next_tick_inner(None)
+            .map(|thread_index| ThreadUnblock {
+                thread_index,
+                scheduler: self
+            })
+    }
+
+    fn block_next_tick_inner(&'static self, next: Option<usize>) -> Option<usize> {
         atomic_block(|| {
             let current = {
                 let lock = self.tasks.read();
@@ -164,13 +174,10 @@ impl Scheduler {
             };
 
             current.and_then(|(thread, thread_index)| {
-                let taken = thread.block();
+                let taken = thread.block(next);
 
                 if taken {
-                    Some(ThreadUnblock {
-                        thread_index,
-                        scheduler: self,
-                    })
+                    Some(thread_index)
                 } else {
                     None
                 }
@@ -178,7 +185,8 @@ impl Scheduler {
         })
     }
 
-    pub fn get_next_context(
+
+        pub fn get_next_context(
         &self,
         ctx: *const InterruptedContext,
     ) -> Option<*const InterruptedContext> {

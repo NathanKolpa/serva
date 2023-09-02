@@ -102,12 +102,12 @@ impl Thread {
         None
     }
 
-    pub fn block(&mut self) -> bool {
+    pub fn block(&mut self, next_thread_index: Option<usize>) -> bool {
         match &mut self.state {
             ThreadState::Running { state, .. } => {
                 match state {
                     RunningState::Waiting | RunningState::Executing => {
-                        *state = RunningState::Blocked { next_blocked: None };
+                        *state = RunningState::Blocked { next_blocked: next_thread_index };
                         return true;
                     },
                     _ => {}

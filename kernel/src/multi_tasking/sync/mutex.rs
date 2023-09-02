@@ -63,7 +63,6 @@ impl<T> Mutex<T> {
         MutexLockGuard { parent: self }
     }
 
-    #[inline(never)]
     fn wait_until_unlock(&self) {
         atomic_block(|| {
             let mut unblock_lock = self.unblock.lock();
