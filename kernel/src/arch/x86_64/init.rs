@@ -9,7 +9,6 @@ use crate::arch::x86_64::interrupts::context::{InterruptStackFrame, InterruptedC
 use crate::arch::x86_64::interrupts::{InterruptDescriptorTable, PageFaultErrorCode};
 use crate::arch::x86_64::segmentation::*;
 use crate::arch::x86_64::{PrivilegeLevel, RFlags};
-use crate::init::test_tick_handler;
 use crate::util::address::VirtualAddress;
 use crate::util::Singleton;
 use crate::util::sync::PanicOnce;
@@ -104,7 +103,7 @@ extern "x86-interrupt" fn page_fault_handler(
 
 #[no_mangle]
 unsafe extern "C" fn tick_inner(ctx: *const InterruptedContext) -> *const InterruptedContext {
-    let next_ctx = test_tick_handler((*ctx).clone());
+    let next_ctx = (INT_HANDLERS.tick)((*ctx).clone());
 
     PIC_CHAIN
         .lock()

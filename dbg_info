@@ -1,0 +1,119 @@
+t1 init:
+```
+rax            0x246794            2385812
+rbx            0x0                 0
+rcx            0x201a00            2103808
+rdx            0x1                 1
+rsi            0x0                 0
+rdi            0x243d08            2374920
+rbp            0x2467e4            0x2467e4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+500>
+rsp            0x246774            0x246774 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+388>
+r8             0x0                 0
+r9             0x0                 0
+r10            0x0                 0
+r11            0x0                 0
+r12            0x0                 0
+r13            0x0                 0
+r14            0x0                 0
+r15            0x0                 0
+rip            0x20beb0            0x20beb0 <kernel::arch::x86_64::interrupts::instructions::int3>
+eflags         0x16                [ IOPL=0 AF PF ]
+cs             0x8                 8
+ss             0x10                16
+ds             0x10                16
+es             0x10                16
+fs             0x0                 0
+gs             0x0                 0
+fs_base        0x0                 0
+gs_base        0x0                 0
+k_gs_base      0x0                 0
+cr0            0x80010011          [ PG WP ET PE ]
+cr2            0x0                 0
+cr3            0x1000              [ PDBR=1 PCID=0 ]
+cr4            0x20                [ PAE ]
+cr8            0x0                 0
+efer           0xd00               [ NXE LMA LME ]
+
+#0  kernel::arch::x86_64::interrupts::instructions::int3 () at kernel/src/arch/x86_64/interrupts/instructions.rs:39
+#1  0x000000000020be4a in kernel::multi_tasking::scheduler::Scheduler::yield_current (self=0x243d08 <kernel::multi_tasking::scheduler::SCHEDULER::he604d53e2f9398a3>) at kernel/src/multi_tasking/scheduler.rs:147
+#2  0x000000000020e24f in kernel::init::test_mutex::{closure#0} () at kernel/src/init.rs:58
+#3  0x000000000020b62b in core::ops::function::FnOnce::call_once<kernel::init::test_mutex::{closure_env#0}, ()> () at /home/nathan/.local/share/rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250
+#4  0x0000000000246814 in kernel::init::test_mutex::STACK1::he453d98fb9fccce8 ()
+#5  0x0000000000215154 in uart_16550::port::{impl#1}::write_str (self=0x2445d2 <kernel::arch::x86_64::devices::uart_16550::SERIAL::h4797bf1231c2742f+10>, s=...) at src/port.rs:141
+#6  0x000000000020f0ea in core::fmt::{impl#0}::write_str<uart_16550::port::SerialPort> (self=0x246a44 <kernel::init::test_mutex::STACK2::hb9f27bc508bf4443+108>, s=...) at /home/nathan/.local/share/rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/fmt/mod.rs:199
+#7  0x000000000022faab in core::fmt::write (output=..., args=...) at src/fmt/mod.rs:1118
+#8  0x000000000020b8dd in spin::mutex::spin::{impl#15}::drop<uart_16550::port::SerialPort> (self=0x246a9c <kernel::init::test_mutex::STACK2::hb9f27bc508bf4443+196>) at /home/nathan/.local/share/cargo/registry/src/index.crates.io-6f17d22bba15001f/spin-0.9.8/src/mutex/spin.rs:350
+#9  0x000000000020b7ba in core::ptr::drop_in_place<spin::mutex::spin::SpinMutexGuard<uart_16550::port::SerialPort>> () at /home/nathan/.local/share/rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497
+#10 0x000000000020b7aa in core::ptr::drop_in_place<spin::mutex::MutexGuard<uart_16550::port::SerialPort>> () at /home/nathan/.local/share/rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497
+#11 0x000000000020ec3e in kernel::debug::_serial_print::{closure#0} () at kernel/src/debug.rs:24
+#12 0x000000000020eadb in kernel::arch::x86_64::interrupts::instructions::atomic_block<kernel::debug::_serial_print::{closure_env#0}, ()> (callback=...) at kernel/src/arch/x86_64/interrupts/instructions.rs:28
+#13 0x000000000020be4a in kernel::multi_tasking::scheduler::Scheduler::yield_current (self=0x243d08 <kernel::multi_tasking::scheduler::SCHEDULER::he604d53e2f9398a3>) at kernel/src/multi_tasking/scheduler.rs:147
+#14 0x000000000020e29f in kernel::init::test_mutex::{closure#1} () at kernel/src/init.rs:64
+#15 0x000000000020b65b in core::ops::function::FnOnce::call_once<kernel::init::test_mutex::{closure_env#1}, ()> () at /home/nathan/.local/share/rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250
+#16 0x0000000000000000 in ?? ()
+
+
+0x246774 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+388>:	0x0020be4a	0x00000000	0x00243d08	0x00000000
+0x246784 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+404>:	0x0020e24f	0x00000000	0x00000000	0x00000000
+0x246794 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+420>:	0x0023dcc0	0x00000000	0x00000001	0x00000000
+0x2467a4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+436>:	0x002467c4	0x00000000	0x00000000	0x00000000
+0x2467b4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+452>:	0x00000000	0x00000000	0x00000000	0x00000000
+0x2467c4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+468>:	0x00000008	0x00000000	0x002467e2	0x00000000
+0x2467d4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+484>:	0x0020b62b	0x00000000	0x00000000	0x00000000
+0x2467e4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+500>:	0x00246814	0x00000000
+```
+
+2 exec:
+```
+rax            0x246794            2385812
+rbx            0x0                 0
+rcx            0x201a00            2103808
+rdx            0x1                 1
+rsi            0x0                 0
+rdi            0x243d08            2374920
+rbp            0x2467e4            0x2467e4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+500>
+rsp            0x246774            0x246774 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+388>
+r8             0x0                 0
+r9             0x0                 0
+r10            0x0                 0
+r11            0x0                 0
+r12            0x0                 0
+r13            0x0                 0
+r14            0x0                 0
+r15            0x0                 0
+rip            0x20beb1            0x20beb1 <kernel::arch::x86_64::interrupts::instructions::int3+1>
+eflags         0x16                [ IOPL=0 AF PF ]
+cs             0x8                 8
+ss             0x10                16
+ds             0x10                16
+es             0x10                16
+fs             0x0                 0
+gs             0x0                 0
+fs_base        0x0                 0
+gs_base        0x0                 0
+k_gs_base      0x0                 0
+cr0            0x80010011          [ PG WP ET PE ]
+cr2            0x0                 0
+cr3            0x1000              [ PDBR=1 PCID=0 ]
+cr4            0x20                [ PAE ]
+cr8            0x0                 0
+efer           0xd00               [ NXE LMA LME ]
+
+
+#0  kernel::arch::x86_64::interrupts::instructions::int3 () at kernel/src/arch/x86_64/interrupts/instructions.rs:41
+#1  0x000000000024675c in kernel::init::test_mutex::STACK1::he453d98fb9fccce8 ()
+#2  0x0000000000200e10 in ?? ()
+#3  0x000000000024681c in kernel::init::test_mutex::STACK1::he453d98fb9fccce8 ()
+#4  0x0000000000214e6e in uart_16550::port::SerialPort::port_line_sts (self=0x2445d2 <kernel::arch::x86_64::devices::uart_16550::SERIAL::h4797bf1231c2742f+10>) at src/port.rs:55
+#5  0x0000000000214d1a in uart_16550::port::SerialPort::port_data (self=0xa0003f80000030a) at src/port.rs:20
+#6  0x0000000000000000 in ?? ()
+
+0x246774 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+388>:	0x0024675c	0x00000000	0x00200e10	0x00000000
+0x246784 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+404>:	0x0024681c	0x00000000	0x00214e6e	0x00000000
+0x246794 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+420>:	0x0023dcd0	0x21000000	0x002151c1	0x00000000
+0x2467a4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+436>:	0x002445d2	0x00000000	0x00214d1a	0x00000000
+0x2467b4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+452>:	0x0000030a	0x0a0003f8	0x00000000	0x00000000
+0x2467c4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+468>:	0x0024681c	0x0a0a0000	0x00214b82	0x00000000
+0x2467d4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+484>:	0x00246814	0x00000000	0x00214cfa	0x00000000
+0x2467e4 <kernel::init::test_mutex::STACK1::he453d98fb9fccce8+500>:	0x00246814	0x00000000
+```

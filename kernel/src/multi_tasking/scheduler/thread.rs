@@ -140,7 +140,6 @@ impl Thread {
         }
 
         if let (Some(stack_top), Some(entry_point)) = (new_stack, new_entry_point) {
-            debug_println!("Init");
             let (code_selector, data_selector) = self.kind.selectors();
 
             self.state = ThreadState::Running {
@@ -148,7 +147,7 @@ impl Thread {
                 context_ptr:InterruptedContext::start_new(InterruptStackFrame::new(
                     entry_point,
                     stack_top.top,
-                    RFlags::NONE,
+                    RFlags::INTERRUPTS_ENABLED,
                     code_selector,
                     data_selector,
                 )),
