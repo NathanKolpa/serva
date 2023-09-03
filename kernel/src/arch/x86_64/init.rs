@@ -1,18 +1,14 @@
 use core::arch::asm;
-use core::mem::MaybeUninit;
-use core::ptr::null;
-use core::sync::atomic::{AtomicBool, Ordering};
 
 use crate::arch::x86_64::constants::{MIN_STACK_SIZE, TICK_INTERRUPT_INDEX};
 use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
 use crate::arch::x86_64::interrupts::context::{InterruptStackFrame, InterruptedContext};
 use crate::arch::x86_64::interrupts::{InterruptDescriptorTable, PageFaultErrorCode};
 use crate::arch::x86_64::segmentation::*;
-use crate::arch::x86_64::{PrivilegeLevel, RFlags};
-use crate::debug_println;
+use crate::arch::x86_64::PrivilegeLevel;
 use crate::util::address::VirtualAddress;
-use crate::util::Singleton;
 use crate::util::sync::PanicOnce;
+use crate::util::Singleton;
 
 const DOUBLE_FAULT_IST_INDEX: usize = 0;
 

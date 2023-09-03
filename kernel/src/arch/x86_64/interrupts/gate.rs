@@ -1,10 +1,8 @@
 use crate::arch::x86_64::interrupts::context::InterruptStackFrame;
-use core::arch::asm;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 
 use crate::arch::x86_64::segmentation::SegmentSelector;
-use crate::arch::x86_64::RFlags;
 use crate::util::address::VirtualAddress;
 
 #[derive(Copy, Clone)]

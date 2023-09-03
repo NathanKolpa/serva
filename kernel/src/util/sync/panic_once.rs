@@ -47,8 +47,8 @@ impl<T> PanicOnce<T> {
 
     fn guard(&self) {
         if self.is_initialized() {
-           panic!("Not initialized");
-       }
+            panic!("Not initialized");
+        }
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -62,9 +62,7 @@ impl<T> Deref for PanicOnce<T> {
     fn deref(&self) -> &Self::Target {
         self.guard();
 
-        unsafe {
-            (&*self.data.get()).assume_init_ref()
-        }
+        unsafe { (&*self.data.get()).assume_init_ref() }
     }
 }
 
@@ -72,18 +70,14 @@ impl<T> DerefMut for PanicOnce<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.guard();
 
-        unsafe {
-            (&mut *self.data.get()).assume_init_mut()
-        }
+        unsafe { (&mut *self.data.get()).assume_init_mut() }
     }
 }
 
 impl<T> Drop for PanicOnce<T> {
     fn drop(&mut self) {
         if self.is_initialized() {
-           unsafe {
-               (&mut *self.data.get()).assume_init_drop()
-           }
+            unsafe { (&mut *self.data.get()).assume_init_drop() }
         }
     }
 }

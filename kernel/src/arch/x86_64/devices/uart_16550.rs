@@ -1,7 +1,6 @@
 use crate::arch::x86_64::port::{Port, ReadOnly, ReadWrite, WriteOnly};
 use crate::util::sync::SpinMutex;
 use crate::util::Singleton;
-use uart_16550::SerialPort;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -95,10 +94,10 @@ impl Uart16550 {
     }
 }
 
-fn init_serial() -> SpinMutex<SerialPort> {
-    let mut serial = SpinMutex::new(unsafe { SerialPort::new(0x3F8) });
+fn init_serial() -> SpinMutex<Uart16550> {
+    let mut serial = SpinMutex::new(unsafe { Uart16550::new(0x3F8) });
     serial.get_mut().init();
     serial
 }
 
-pub static SERIAL: Singleton<SpinMutex<SerialPort>> = Singleton::new(init_serial);
+pub static SERIAL: Singleton<SpinMutex<Uart16550>> = Singleton::new(init_serial);

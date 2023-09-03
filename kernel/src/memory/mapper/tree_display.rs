@@ -1,6 +1,6 @@
-use core::fmt::{write, Display, Formatter};
+use core::fmt::{Display, Formatter};
 
-use crate::arch::x86_64::paging::{PageTable, PageTableEntryFlags};
+use crate::arch::x86_64::paging::PageTable;
 use crate::memory::MemoryMapper;
 use crate::util::collections::FixedVec;
 

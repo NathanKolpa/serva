@@ -2,7 +2,6 @@ use core::arch::asm;
 
 use crate::arch::x86_64::segmentation::SegmentSelector;
 use crate::arch::x86_64::RFlags;
-use crate::debug_println;
 use crate::util::address::VirtualAddress;
 
 #[repr(C)]
