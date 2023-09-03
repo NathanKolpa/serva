@@ -32,9 +32,8 @@ impl Scheduler {
         self.get_next()
     }
 
-    pub fn yield_current(&self) -> ! {
+    pub fn yield_current(&self) {
         int3();
-        unreachable!()
     }
 
     fn save_and_set_waiting(&self, ctx: InterruptedContext) {

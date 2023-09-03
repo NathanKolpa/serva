@@ -40,7 +40,8 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
         )
     });
 
-    SCHEDULER.yield_current()
+    SCHEDULER.yield_current();
+    unreachable!()
 }
 
 static mut KERNEL_MAIN_STACK: [u8; MIN_STACK_SIZE] = [0; MIN_STACK_SIZE];
@@ -58,5 +59,6 @@ fn main_kernel_thread() -> ! {
         debug_println!("{:#?}", FRAME_ALLOCATOR.info());
     });
 
+    SCHEDULER.yield_current();
     halt_loop()
 }

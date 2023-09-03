@@ -9,7 +9,7 @@ spin = "0.9.8"
 
 [package.metadata.bootimage]
 run-args = [
-    "-S",
+#    "-S",
     "-gdb", "tcp::1234",
     "-serial", "stdio",
     "-display", "none"
