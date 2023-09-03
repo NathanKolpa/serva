@@ -75,6 +75,7 @@ impl<T> Mutex<T> {
             drop(unblock_lock);
             SCHEDULER.yield_current();
         });
+
     }
 
     fn unlock(&self) {
@@ -88,7 +89,6 @@ impl<T> Mutex<T> {
 
         if let Some(unblock) = unblock_lock.take() {
             *unblock_lock = unblock.unblock_one();
-
         }
     }
 }

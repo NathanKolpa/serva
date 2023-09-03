@@ -9,6 +9,7 @@ use crate::arch::x86_64::interrupts::context::{InterruptStackFrame, InterruptedC
 use crate::arch::x86_64::interrupts::{InterruptDescriptorTable, PageFaultErrorCode};
 use crate::arch::x86_64::segmentation::*;
 use crate::arch::x86_64::{PrivilegeLevel, RFlags};
+use crate::debug_println;
 use crate::util::address::VirtualAddress;
 use crate::util::Singleton;
 use crate::util::sync::PanicOnce;

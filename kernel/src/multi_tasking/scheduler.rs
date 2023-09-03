@@ -3,12 +3,10 @@ use core::fmt::{Debug, Formatter};
 use core::ops::Deref;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-
 pub use thread::*;
-use crate::arch::x86_64::halt;
 
 use crate::arch::x86_64::interrupts::context::InterruptedContext;
-use crate::arch::x86_64::interrupts::{atomic_block, enable_interrupts, int3};
+use crate::arch::x86_64::interrupts::{atomic_block, int3};
 use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
 use crate::util::collections::FixedVec;
@@ -38,43 +36,50 @@ impl ThreadUnblock {
     /// # Safety
     /// The caller must ensure that this function is only called once.
     unsafe fn unblock_all_inner(&self) {
-        let lock = self.scheduler.tasks.read();
+        atomic_block(|| {
+            let lock = self.scheduler.tasks.read();
 
-        let get_by_index = |index| {
-            let thread = lock[index].as_ref().unwrap();
-            unsafe { &mut *thread.get() }
-        };
+            let get_by_index = |index| {
+                let thread = lock[index].as_ref().unwrap();
+                unsafe { &mut *thread.get() }
+            };
 
-        let mut current = get_by_index(self.thread_index);
+            let mut current = get_by_index(self.thread_index);
 
-        while let Some(next) = current.unblock() {
-            current = get_by_index(next);
-        }
+            while let Some(next) = current.unblock() {
+                current = get_by_index(next);
+            }
 
-        if let Some(thread) = lock[self.thread_index].as_ref() {
-            let thread = unsafe { &mut *thread.get() };
-            thread.unblock();
-        }
+            if let Some(thread) = lock[self.thread_index].as_ref() {
+                let thread = unsafe { &mut *thread.get() };
+                thread.unblock();
+            }
+        })
     }
 
     pub fn unblock_one(self) -> Option<Self> {
-        let lock = self.scheduler.tasks.read();
-        let thread = lock[self.thread_index].as_ref().unwrap();
+        atomic_block(|| {
+            let lock = self.scheduler.tasks.read();
+            let thread = lock[self.thread_index].as_ref().unwrap();
 
-        let next = unsafe {
-            let thread = &mut *thread.get();
+            let next = unsafe {
+                let thread = &mut *thread.get();
 
-            thread.unblock()
-        }?;
+                thread.unblock()
+            }?;
 
-        Some(Self {
-            scheduler: self.scheduler,
-            thread_index: next,
+            Some(Self {
+                scheduler: self.scheduler,
+                thread_index: next,
+            })
         })
     }
 
     pub fn block_with_after_next_tick(&mut self) {
-        if let Some(thread_index) = self.scheduler.block_next_tick_inner(Some(self.thread_index)) {
+        if let Some(thread_index) = self
+            .scheduler
+            .block_next_tick_inner(Some(self.thread_index))
+        {
             self.thread_index = thread_index;
         }
     }
@@ -153,7 +158,7 @@ impl Scheduler {
         self.block_next_tick_inner(None)
             .map(|thread_index| ThreadUnblock {
                 thread_index,
-                scheduler: self
+                scheduler: self,
             })
     }
 
@@ -176,17 +181,14 @@ impl Scheduler {
         })
     }
 
-
-        pub fn get_next_context(
-        &self,
-        ctx: InterruptedContext,
-    ) -> &InterruptedContext {
+    pub fn get_next_context(&self, ctx: InterruptedContext) -> &InterruptedContext {
         atomic_block(|| {
             let thread_lock = self.tasks.read();
             // its unsafe to call the below function concurrently.
             // however the only concurrency in the kernel is though interrupts.
             // And because this is within an atomic block, this is safe.
-            unsafe { self.next_thread_context(&thread_lock.as_ref(), Some(ctx)) }.expect("Handle this tho")
+            unsafe { self.next_thread_context(&thread_lock.as_ref(), Some(ctx)) }
+                .expect("Handle this tho")
         })
     }
 
