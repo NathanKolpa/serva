@@ -14,5 +14,6 @@ pub mod debug;
 pub mod init;
 pub mod interrupts;
 pub mod memory;
+pub mod multi_tasking;
 pub mod testing;
 pub mod util;

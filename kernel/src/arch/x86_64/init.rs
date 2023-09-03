@@ -67,7 +67,7 @@ fn init_gdt() -> FullGdt {
 pub static GDT: Singleton<FullGdt> = Singleton::new(init_gdt);
 
 pub struct InterruptHandlers {
-    pub tick: fn(ctx: InterruptedContext) -> &'static InterruptedContext,
+    pub tick: fn(ctx: InterruptedContext) -> *const InterruptedContext,
 }
 
 static INT_HANDLERS: PanicOnce<InterruptHandlers> = PanicOnce::new();

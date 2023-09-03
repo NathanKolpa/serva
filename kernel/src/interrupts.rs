@@ -1,8 +1,9 @@
 use crate::arch::x86_64::init::InterruptHandlers;
 use crate::arch::x86_64::interrupts::context::InterruptedContext;
+use crate::multi_tasking::scheduler::SCHEDULER;
 
-fn tick(_ctx: InterruptedContext) -> &'static InterruptedContext {
-    todo!()
+fn tick(ctx: InterruptedContext) -> *const InterruptedContext {
+    SCHEDULER.tick(ctx)
 }
 
 pub const INTERRUPT_HANDLERS: InterruptHandlers = InterruptHandlers { tick };
