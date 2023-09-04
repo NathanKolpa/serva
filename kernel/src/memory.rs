@@ -4,6 +4,7 @@ mod flush;
 mod frame_allocator;
 mod info;
 mod mapper;
+pub mod heap;
 
 pub use flush::*;
 pub use frame_allocator::*;
