@@ -9,6 +9,8 @@
 #![test_runner(crate::testing::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+extern crate alloc;
+
 pub mod arch;
 pub mod debug;
 pub mod init;
@@ -17,3 +19,4 @@ pub mod memory;
 pub mod multi_tasking;
 pub mod testing;
 pub mod util;
+pub mod service;

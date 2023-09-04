@@ -68,7 +68,6 @@ fn main_kernel_thread() -> ! {
         debug_println!("Debug channel: {}", DEBUG_CHANNEL);
 
         debug_println!("Initializing kernel heap with {} of memory", ReadableSize::new(HEAP_SIZE));
-
         map_heap(&mut mapper).expect("Failed to map the kernel heap");
 
         debug_println!("{:#?}", FRAME_ALLOCATOR.info());
