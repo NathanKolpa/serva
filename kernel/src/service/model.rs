@@ -17,14 +17,33 @@ pub enum Privilege {
     Local,
 }
 
+pub enum SharedData {
+    SizedBuffer { bytes: usize },
+    SizedBufferList { element_size: usize},
+    UnsizedBuffer,
+    StreamHandle { handle: u64 },
+}
+
+pub struct EndpointParameter {
+    name: Option<String>,
+    data: SharedData,
+}
+
+pub struct EndpointParameterList {
+    parameters: Vec<EndpointParameter>
+}
+
 pub struct Endpoint {
     id: usize,
     name: String,
+    arguments: EndpointParameterList,
+    response: Option<EndpointParameterList>,
     min_privilege: Privilege,
-    handler: VirtualAddress,
 }
 
-pub struct Interface {}
+pub struct Interface {
+    endpoints: Vec<Endpoint>
+}
 
 pub struct Intent {
     service: usize,
@@ -34,6 +53,19 @@ pub struct Intent {
 
 pub struct Links {
     setup: VirtualAddress,
+    endpoint_handlers: Vec<VirtualAddress>
+}
+
+pub struct Session {
+    id: usize,
+    source: usize,
+    target: usize,
+}
+
+pub struct Request {
+    id: usize,
+    session: usize,
+    endpoint: usize
 }
 
 pub struct ServiceSpec {
@@ -59,4 +91,10 @@ pub struct Service {
 
     /// The link between the `ServiceSpec` and the actual code addresses.
     links: Option<Links>,
+}
+
+impl Service {
+    pub fn new(id: usize, spec: ServiceSpec) -> Self {
+        Self { id, spec, running: false, links: None }
+    }
 }

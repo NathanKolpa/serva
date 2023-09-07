@@ -16,6 +16,7 @@ pub struct Thread {
     name: Option<&'static str>,
     context: InterruptedContext,
     state: ThreadState,
+    service_id: Option<usize>,
 }
 
 impl Thread {
@@ -23,6 +24,7 @@ impl Thread {
         name: Option<&'static str>,
         stack: ThreadStack,
         entrypoint: VirtualAddress,
+        service_id: Option<usize>
     ) -> Self {
         Self {
             name,
@@ -34,6 +36,7 @@ impl Thread {
                 GDT.kernel_data,
             )),
             state: ThreadState::Waiting,
+            service_id
         }
     }
 

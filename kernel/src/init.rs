@@ -41,9 +41,10 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     SCHEDULER.add_thread(unsafe {
         Thread::start_new(
-            Some("Kernel Main"),
+            Some("Kernel Main/Idle Thread"),
             ThreadStack::from_slice(&mut KERNEL_MAIN_STACK),
             VirtualAddress::from(main_kernel_thread as *const fn()),
+            None
         )
     });
 
