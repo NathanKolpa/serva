@@ -6,8 +6,9 @@ The model of a client and server can be found almost everywhere.
 Serva takes this pattern to the extreme: "What if all programs are services?"
 The key motivation behind this radical approach is because it allows the kernel
 to validate that user-code runs as specified in a [pre-defined contract](service-spec.md) (service spec).
-Another stability benefit of the service-model is that the kernel automatically can manage the [lifecycle](lifecycle.md)
-of each service. As apposed to Unix, programmers can expect that the system is installed and running as required before
+Another stability benefit of the service model is that the kernel automatically can manage the [lifecycle](lifecycle.md)
+of each service.
+As apposed to Unix, programmers can assume that the system is installed and running as expected before
 their code even starts executing.
 
 ## Privileges and _(the lack of)_ users
