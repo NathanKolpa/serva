@@ -41,14 +41,14 @@ impl SegmentDescriptor {
 }
 
 pub struct GlobalDescriptorTable {
-    table: [u64; 8],
+    table: [u64; 10],
     len: usize,
 }
 
 impl GlobalDescriptorTable {
     pub const fn new() -> Self {
         Self {
-            table: [NormalSegment::NULL.as_u64(); 8],
+            table: [NormalSegment::NULL.as_u64(); 10],
             len: 1,
         }
     }

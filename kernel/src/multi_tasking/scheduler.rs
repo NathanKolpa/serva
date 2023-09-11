@@ -54,10 +54,10 @@ impl Scheduler {
 
         let task_count = tasks_lock.len();
 
-        let current = current_lock.unwrap_or(0);
+        let start = current_lock.map(|current| current + 1).unwrap_or(0);
 
         let next_thread_id = (0..task_count)
-            .map(|i| (i + current) % task_count)
+            .map(|i| (i + start) % task_count)
             .find_map(|id| {
                 let task = &tasks_lock[id];
 

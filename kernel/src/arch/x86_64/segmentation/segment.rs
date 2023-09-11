@@ -43,7 +43,6 @@ impl UserAccessByte {
         value_byte |= (executable as u8) << 3;
         value_byte |= (dc as u8) << 2;
         value_byte |= (rw as u8) << 1;
-        value_byte |= 1; // TODO: is dit nodig?
 
         Self {
             value: AccessByte { value: value_byte },

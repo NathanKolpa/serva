@@ -1,0 +1,39 @@
+mod connect;
+mod error;
+mod hello;
+
+use crate::arch::x86_64::syscalls::SyscallArgs;
+
+use crate::service::Privilege;
+use error::encode_result;
+pub use error::{SyscallError, SyscallResult};
+
+pub type SyscallHandler = fn(&SyscallArgs) -> SyscallResult;
+
+static SYSCALL_TABLE: [SyscallHandler; 2] = [hello::hello_syscall, connect::connect_syscall];
+
+const USER_CALLS_START: usize = 0;
+
+pub fn handle_kernel_syscall(args: &SyscallArgs) -> SyscallResult {
+    let call_index = args.syscall as usize;
+
+    if call_index > SYSCALL_TABLE.len() {
+        return Err(SyscallError::UnknownSyscall);
+    }
+
+    (SYSCALL_TABLE[call_index])(&args)
+}
+pub fn handle_user_syscall(args: &SyscallArgs) -> SyscallResult {
+    let call_index = args.syscall as usize;
+
+    if call_index < USER_CALLS_START {
+        return Err(SyscallError::InsufficientPrivilege(Privilege::Kernel));
+    }
+
+    handle_kernel_syscall(args)
+}
+
+pub fn handle_user_syscall_raw(args: SyscallArgs) -> u64 {
+    let result = handle_user_syscall(&args);
+    encode_result(result)
+}

@@ -307,6 +307,13 @@ impl<A: Copy> Page<A> {
     pub fn end_addr(&self) -> Address<A> {
         self.addr + self.size.as_usize()
     }
+
+    pub fn prev(&self) -> Self {
+        Self {
+            addr: self.addr - self.size.as_usize(),
+            size: self.size
+        }
+    }
 }
 
 impl Page<VirtualAddressMarker> {

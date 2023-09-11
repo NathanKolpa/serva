@@ -4,6 +4,7 @@ use core::mem::MaybeUninit;
 use crate::arch::x86_64::segmentation::SegmentSelector;
 
 #[derive(Debug)]
+#[repr(C)]
 pub struct SyscallArgs {
     pub syscall: u64,
     pub arg0: u64,
@@ -81,15 +82,24 @@ extern "C" fn naked_syscall_handler() {
     }
 }
 
-/// Enable and setup the `syscall` instruction with a global handler.
+/// Enable and setup the `syscalls` instruction with a global handler.
+///
+/// According to the [osdev forum](https://forum.osdev.org/viewtopic.php?f=1&t=26130), the privilege level is set ring0 on syscall and ring3 is set on sysret, regardless of the specified parameters:
+/// > The processor assumes (but does not check) that the SYSCALL target CS has CPL=0 and the SYSRET target CS has CPL=3.
+/// > SYSCALL sets the CPL to 0, regardless of the values of bits 33–32 of the STAR register.
+/// > SYSRET sets the CPL to 3, regardless of the values of bits 49–48 of the star register. SYSRET can only be executed at CPL 0.
+///
+/// This means that the syscall functionality can only be used to go from ring3 -> ring0 -> ring3 specifically.
 ///
 /// ## Safety
 ///
-/// The caller must ensure that this function is only called once.
+/// The caller must ensure that:
+/// - This function is only called once (this may be safe but this is not verified).
+/// - The handler address points to a valid function address.
 ///
 /// ## Parameters
-/// - `syscall_handler` The function that is called when `syscall` is executed.
-/// - `syscall_selector` The GDT selectors that are set active on the syscall.
+/// - `syscall_handler` The function that is called when `syscalls` is executed.
+/// - `syscall_selector` The GDT selectors that are set active on the syscalls.
 ///     - The index must point to the `syscall_handler`'s code segment (most likely Ring0).
 ///     - The segment after the code segment the GDT must point to the data segment of the same privilege level.
 ///     - The privilege level must be consistent with both segments.
@@ -145,7 +155,7 @@ pub unsafe fn init_syscalls(
         out("rdx") _
     );
 
-    // Enable the use of syscall and sysret instructions (disabled by default on boot).
+    // Enable the use of syscalls and sysret instructions (disabled by default on boot).
     asm!(
         "rdmsr",
         "or eax, 1",

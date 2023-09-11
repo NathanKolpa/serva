@@ -40,12 +40,12 @@ impl From<WalkError> for ModifyMappingError {
 /// There can be multiple instances of a memory mapper throughout the kernel.
 /// This is because a `MemoryMapper` only manages a single level 4 page table.
 /// Typically at startup, the kernel will setup its own memory map, and from which each new (user) task will have these kernel mappings shared in its own address space.
-/// Having the kernel mapped in each running task will make `syscall` that much more performant, since so page tables have to be swapped out.
+/// Having the kernel mapped in each running task will make `syscalls` that much more performant, since so page tables have to be swapped out.
 ///
 /// # Ownership
 ///
 /// To avoid programming errors and deallocate unused frames, the `MemoryMapper` mimics rust's ownership rules.
-/// You can read more on the [`MemoryMapper::new_mapper`]'s documentation.
+/// You can read more on the [`MemoryMapper::borrow_to_new_mapper`]'s documentation.
 pub struct MemoryMapper {
     frame_allocator: &'static FrameAllocator,
     l4_page: PhysicalPage,
@@ -126,6 +126,35 @@ impl MemoryMapper {
         }
     }
 
+    pub fn new_mapper(&self, inherit: bool) -> Result<Self, NewMappingError> {
+        let new_frame = self
+            .frame_allocator
+            .allocate_new_page_table()
+            .ok_or(NewMappingError::OutOfFrames)?;
+
+        let table = unsafe { self.deref_page_table_mut(new_frame.addr()) };
+
+        if inherit {
+            let clone_table = unsafe { self.deref_page_table_mut(self.l4_page.addr()) };
+
+            for (i, clone_entry) in clone_table.iter().enumerate() {
+                table[i] = if clone_entry.flags().borrowed() {
+                    *clone_entry
+                } else {
+                    PageTableEntry::default()
+                }
+            }
+        } else {
+            table.zero();
+        }
+
+        Ok(Self {
+            l4_page: new_frame,
+            frame_allocator: self.frame_allocator,
+            global_offset: self.global_offset,
+        })
+    }
+
     /// Create a new `MemoryMapper`.
     ///
     /// When the `inherit` parameter is set to `false`, the new `MemoryMapper` gets a
@@ -139,7 +168,7 @@ impl MemoryMapper {
     /// This is because the solution to this problem is to reference count the borrowed tables, which is not acceptable for this performance-critical part of the kernel.
     /// However, this is not an issue when the `MemoryMapper` is used as described in _Use-case_ section on the struct-level documentation.
     /// Because the kernel mappings will of-course last for the entire execution time of the kernel.
-    pub fn new_mapper(&mut self, inherit: bool) -> Result<Self, NewMappingError> {
+    pub fn borrow_to_new_mapper(&mut self, inherit: bool) -> Result<Self, NewMappingError> {
         if inherit {
             self.borrow_owned_entries();
         }

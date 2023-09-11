@@ -23,19 +23,19 @@ Each service runs with a so-called _privilege level_, these levels are (in desce
 | Local  | Can only make request to services specified in the service spec.                                                           | Everything else                                                           |
 
 These privilege levels encapsulate all but the most obscure use-cases of Unix's users and groups.
-It must be noted that services can implement their own definition of what it means to be a "user of the system".
+It must be noted that services can implement their own definition of what it means to be a "user of the system."
 
 ## Files
 
 Because a service is such a powerful interface, Serva completely gets rid of
 the [VFS](https://en.wikipedia.org/wiki/Virtual_file_system)!
-You begin to question in great dismay: "But how do I read and write to disk? And why'd you get rid of my pipes!"
+You may begin to question in great dismay: "But how do I read and write to disk? And why'd you get rid of my pipes!"
 
 1. The kernel exposes a _data_ service, which returns a stream descriptor.
 2. You can share stream descriptors.
 
 ## Drivers
 
-The Serva kernel is an exo-kernel.
+The Serva kernel is a microkernel.
 This means that services can run directly in Ring0.
 If you wish to write a kernel service, simply change the privilege level in the service spec.
