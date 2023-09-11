@@ -81,14 +81,14 @@ fn main_kernel_thread() -> ! {
         debug_println!("{:#?}", FRAME_ALLOCATOR.info());
 
         // from this point on the kernel map is shared and cannot be changed.
-        SERVICE_TABLE.set_root_memory_map(mapper.borrow_to_new_mapper(true).expect("Failed to inherit root memory map"));
+        SERVICE_TABLE.set_root_memory_map(
+            mapper
+                .borrow_to_new_mapper(true)
+                .expect("Failed to inherit root memory map"),
+        );
 
         unsafe {
-            init_syscalls(
-                handle_user_syscall_raw,
-                GDT.syscall,
-                GDT.sysret,
-            );
+            init_syscalls(handle_user_syscall_raw, GDT.syscall, GDT.sysret);
         }
 
         test_service::setup_test_service();
@@ -101,21 +101,46 @@ fn main_kernel_thread() -> ! {
 }
 
 mod test_service {
-    use alloc::borrow::Cow;
     use crate::arch::x86_64::constants::MIN_STACK_SIZE;
     use crate::arch::x86_64::syscalls::SyscallArgs;
     use crate::interface::syscalls::{handle_kernel_syscall, SyscallResult};
     use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
-    use crate::service::{Privilege, SERVICE_TABLE};
+    use crate::service::{Privilege, ServiceEntrypoint, SERVICE_TABLE};
     use crate::util::address::VirtualAddress;
+    use alloc::borrow::Cow;
 
     pub fn setup_test_service() {
-        let intents = [];
-        let endpoints = [];
+        let entry = ServiceEntrypoint::MappedFunction(VirtualAddress::from(
+            test_service_start as *const (),
+        ));
 
-        let spec = SERVICE_TABLE.register_spec(Cow::Borrowed("test"), Privilege::Kernel, intents, endpoints);
+        let _dep = unsafe {
+            let intents = [];
+            let endpoints = [];
 
-        unsafe { SERVICE_TABLE.start_service(spec.id(), VirtualAddress::from(test_service_start as *const ())).unwrap() };
+            SERVICE_TABLE.register_spec(
+                Cow::Borrowed("Test Dependency"),
+                Privilege::Kernel,
+                entry.clone(),
+                intents,
+                endpoints,
+            )
+        };
+
+        let spec = unsafe {
+            let intents = [];
+            let endpoints = [];
+
+            SERVICE_TABLE.register_spec(
+                Cow::Borrowed("test"),
+                Privilege::Kernel,
+                entry,
+                intents,
+                endpoints,
+            )
+        };
+
+        unsafe { SERVICE_TABLE.start_service(spec.id()).unwrap() };
     }
 
     fn syscall(args: SyscallArgs) -> SyscallResult {
@@ -130,8 +155,9 @@ mod test_service {
                 arg0: 0,
                 arg1: 1,
                 arg2: 2,
-                arg3: 3
-            }).unwrap();
+                arg3: 3,
+            })
+            .unwrap();
         }
     }
 }

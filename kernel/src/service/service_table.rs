@@ -55,10 +55,13 @@ impl ServiceTable {
         self.root_memory_map.initialize_with(memory_map);
     }
 
-    pub fn register_spec(
+    /// # Safety
+    /// The entrypoint must be valid.
+    pub unsafe fn register_spec(
         &self,
         name: CowString,
         privilege: Privilege,
+        entrypoint: ServiceEntrypoint, // TODO: have support for requets as well, eg. data.read("/init", HEADER_OFFSET)
         spec_intents: impl IntoIterator<Item = NewIntent>,
         spec_endpoints: impl IntoIterator<Item = NewEndpoint>,
     ) -> ServiceSpecRef<'_> {
@@ -102,6 +105,7 @@ impl ServiceTable {
             intents_end,
             endpoints_start,
             endpoints_end,
+            entrypoint
         });
 
         ServiceSpecRef::new(self, new_spec_id)
@@ -140,10 +144,9 @@ impl ServiceTable {
         Ok(ThreadStack::from_page(stack_page))
     }
 
-    pub unsafe fn start_service(
+    pub fn start_service(
         &self,
         spec_id: Id,
-        entrypoint: VirtualAddress,
     ) -> Result<ServiceRef, NewServiceError> {
         let mut services = self.services.lock();
         let specs = self.specs.lock();
@@ -167,8 +170,13 @@ impl ServiceTable {
             connections: Vec::new(),
         });
 
+        let addr = match spec.entrypoint {
+            ServiceEntrypoint::MappedFunction(addr) => addr,
+            ServiceEntrypoint::Elf() => todo!()
+        };
+
         let main_thread =
-            unsafe { Thread::start_new(None, stack, entrypoint, Some(id)) };
+            unsafe { Thread::start_new(None, stack, addr, Some(id)) };
 
         SCHEDULER.add_thread(main_thread);
 

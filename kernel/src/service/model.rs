@@ -1,6 +1,7 @@
 use crate::memory::MemoryMapper;
 use alloc::borrow::Cow;
 use alloc::vec::Vec;
+use crate::util::address::VirtualAddress;
 
 pub type Id = usize;
 pub type CowString = Cow<'static, str>;
@@ -20,6 +21,12 @@ pub enum Privilege {
     Local,
 }
 
+#[derive(Clone)]
+pub enum ServiceEntrypoint {
+    MappedFunction(VirtualAddress),
+    Elf() // TODO: place a request here!
+}
+
 pub struct ServiceSpec {
     pub id: Id,
 
@@ -34,6 +41,8 @@ pub struct ServiceSpec {
 
     pub endpoints_start: Id,
     pub endpoints_end: Id,
+
+    pub entrypoint: ServiceEntrypoint,
 }
 
 pub struct Intent {
