@@ -23,7 +23,7 @@ pub enum NewServiceError {
 #[derive(Debug)]
 pub enum ConnectError {
     SpecDoesNotExist,
-    FailedToStartService(NewServiceError)
+    FailedToStartService(NewServiceError),
 }
 
 pub struct NewIntent {
@@ -125,7 +125,11 @@ impl ServiceTable {
     }
 
     pub fn resolve_spec_name(&self, name: &str) -> Option<ServiceSpecRef> {
-        todo!()
+        self.specs
+            .lock()
+            .iter()
+            .find(|spec| spec.name == name)
+            .map(|spec| ServiceSpecRef::new(self, spec.id))
     }
 
     fn create_stack(
@@ -164,22 +168,29 @@ impl ServiceTable {
         Ok(ThreadStack::from_page(stack_page))
     }
 
-    pub fn connect_to(&self, source_service: Id, target_spec: Id) -> Result<ServiceRef, ConnectError> {
+    pub fn connect_to(
+        &self,
+        source_service: Id,
+        target_spec: Id,
+    ) -> Result<ServiceRef, ConnectError> {
         let specs = self.specs.lock();
 
-        let src = specs.get(target_spec).ok_or(ConnectError::SpecDoesNotExist)?;
+        let src = specs
+            .get(target_spec)
+            .ok_or(ConnectError::SpecDoesNotExist)?;
 
         let target_service = match src.service {
             Some(service_id) => ServiceRef::new(self, service_id),
             None => {
                 drop(specs);
-                self.start_service(target_spec).map_err(ConnectError::FailedToStartService)?
+                self.start_service(target_spec)
+                    .map_err(ConnectError::FailedToStartService)?
             }
         };
 
         let mut services = self.services.lock();
         services[source_service].connections.push(Connection {
-            service_id: target_service.id()
+            service_id: target_service.id(),
         });
 
         Ok(target_service)
@@ -189,7 +200,9 @@ impl ServiceTable {
         let mut services = self.services.lock();
         let mut specs = self.specs.lock();
 
-        let spec = specs.get_mut(spec_id).ok_or(NewServiceError::SpecNotFound)?;
+        let spec = specs
+            .get_mut(spec_id)
+            .ok_or(NewServiceError::SpecNotFound)?;
 
         let mut memory_map = self
             .root_memory_map

@@ -12,7 +12,11 @@ pub enum SyscallError {
 
     OutOfMemory,
 
-    UnknownResource
+    ResourceNotFound,
+
+    InvalidPointerMappings,
+
+    InvalidStringArgument
 }
 
 pub type SyscallResult = Result<u64, SyscallError>;

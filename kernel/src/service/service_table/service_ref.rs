@@ -9,8 +9,8 @@ pub struct ServiceRef<'a> {
 }
 
 impl<'a> ServiceRef<'a> {
-    pub fn new(table: &'a ServiceTable, service_ref: Id) -> Self {
-        Self { table, id: service_ref }
+    pub fn new(table: &'a ServiceTable, service_id: Id) -> Self {
+        Self { table, id: service_id }
     }
 
     pub fn id(&self) -> Id {
@@ -22,13 +22,15 @@ impl<'a> ServiceRef<'a> {
         services[self.id].memory_map.set_active()
     }
 
-    pub fn is_pointer_safe_to_deref(&self, address: VirtualAddress) -> bool {
+    pub fn deref_incoming_pointer<'b>(&self, address: VirtualAddress) -> Option<&'b [u8]> {
         let specs = self.table.specs.lock();
         let services = self.table.services.lock();
         let service = &services[self.id];
 
+
+        // todo
         match specs[service.spec_id].privilege {
-            Privilege::Kernel => return true,
+            Privilege::Kernel => return unsafe { Some(core::slice::from_raw_parts(address.as_ptr(), 256)) },
             _ => {}
         }
 

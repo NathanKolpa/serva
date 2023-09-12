@@ -102,13 +102,15 @@ fn main_kernel_thread() -> ! {
 
 mod test_service {
     use crate::arch::x86_64::constants::MIN_STACK_SIZE;
+    use crate::arch::x86_64::halt;
     use crate::arch::x86_64::syscalls::SyscallArgs;
     use crate::interface::syscalls::{handle_kernel_syscall, SyscallResult};
     use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
     use crate::service::{Privilege, ServiceEntrypoint, SERVICE_TABLE};
     use crate::util::address::VirtualAddress;
     use alloc::borrow::Cow;
-    use crate::arch::x86_64::halt;
+    use alloc::ffi::CString;
+    use core::ffi::CStr;
 
     pub fn setup_test_service() {
         let entry = ServiceEntrypoint::MappedFunction(VirtualAddress::from(
@@ -155,13 +157,16 @@ mod test_service {
     fn test_service_start() -> ! {
         debug_println!("Connecting");
 
+        let service_name = CString::new("Test Dependency").unwrap();
+
         let connection = syscall(SyscallArgs {
             syscall: 1,
-            arg0: 0,
+            arg0: service_name.as_ptr() as u64,
             arg1: 0,
             arg2: 0,
-            arg3: 0
-        }).unwrap();
+            arg3: 0,
+        })
+        .unwrap();
 
         debug_println!("Connection Handle {}", connection);
 
