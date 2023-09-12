@@ -82,14 +82,14 @@ extern "C" fn naked_syscall_handler() {
     }
 }
 
-/// Enable and setup the `syscalls` instruction with a global handler.
+/// Enable and setup the `syscall` instruction with a global handler.
 ///
-/// According to the [osdev forum](https://forum.osdev.org/viewtopic.php?f=1&t=26130), the privilege level is set ring0 on syscall and ring3 is set on sysret, regardless of the specified parameters:
+/// According to the [osdev forum](https://forum.osdev.org/viewtopic.php?f=1&t=26130), the privilege level is set to ring0 on syscall and ring3 is set on sysret, regardless of the specified parameters:
 /// > The processor assumes (but does not check) that the SYSCALL target CS has CPL=0 and the SYSRET target CS has CPL=3.
 /// > SYSCALL sets the CPL to 0, regardless of the values of bits 33–32 of the STAR register.
 /// > SYSRET sets the CPL to 3, regardless of the values of bits 49–48 of the star register. SYSRET can only be executed at CPL 0.
 ///
-/// This means that the syscall functionality can only be used to go from ring3 -> ring0 -> ring3 specifically.
+/// This means that the syscall functionality can only be used to go from ring3 to ring0 and back to ring3 specifically.
 ///
 /// ## Safety
 ///
@@ -98,15 +98,15 @@ extern "C" fn naked_syscall_handler() {
 /// - The handler address points to a valid function address.
 ///
 /// ## Parameters
-/// - `syscall_handler` The function that is called when `syscalls` is executed.
-/// - `syscall_selector` The GDT selectors that are set active on the syscalls.
-///     - The index must point to the `syscall_handler`'s code segment (most likely Ring0).
+/// - `syscall_handler` The function that is called when a `syscall` instruction is executed.
+/// - `syscall_selector` The GDT selectors that are set active when the `syscall_handler` is called.
+///     - The index must point to the `syscall_handler`'s **code** segment (Ring0).
 ///     - The segment after the code segment the GDT must point to the data segment of the same privilege level.
-///     - The privilege level must be consistent with both segments.
+///     - The privilege level in the selector must be Ring0
 /// - `sysret_selector` The GDT selectors that are set active when the `syscall_handler` returns.
-///     - The index should point to the **data** segment of the syscallee's **data** segment, **minus one**.
+///     - The index should point to the **data** segment (Ring3) of the syscallee's **data** segment, **minus one**.
 ///     - The segment after the data segment in the GDT must point to the code segment of the same privilege level.
-///     - The privilege level must be consistent with both segments.
+///     - The privilege level in the selector must be Ring3
 ///
 /// Be sure to pay extra attention to the selector parameters, because they are very inconsistent with the rest of the architecture and themselves.
 pub unsafe fn init_syscalls(
@@ -147,7 +147,7 @@ pub unsafe fn init_syscalls(
 
     asm!(
         "xor rax, rax",
-        "mov rdx, {selector_value:r}", // TODO: figure out how to dynamically use the segment selectors
+        "mov rdx, {selector_value:r}",
         "wrmsr",
         in("rcx") MSR_STAR,
         selector_value = in(reg) selector_value,

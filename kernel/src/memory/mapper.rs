@@ -277,6 +277,32 @@ impl MemoryMapper {
         unsafe { self.map_to(flags, parent_flags, new_page, frame.addr()) }
     }
 
+    pub fn effective_flags(&self, addr: VirtualAddress) -> Option<(PageTableEntryFlags, PageSize)> {
+        let mut flags = PageTableEntryFlags::default();
+        let mut size = PageSize::Size4Kib;
+
+        for walk_result in self.walk_entries(addr) {
+            let walk_entry = walk_result.ok()?;
+
+            if walk_entry.level() == 4 {
+                flags = walk_entry.value().flags();
+            }
+            else {
+                flags = flags & walk_entry.value().flags();
+            }
+
+            if walk_entry.value().flags().huge() {
+                match walk_entry.level() {
+                    2 => size = PageSize::Size2Mib,
+                    3 => size = PageSize::Size1Gib,
+                    _ => panic!("Unexpected huge page"),
+                }
+            }
+        }
+
+        Some((flags, size))
+    }
+
     fn deref_l4_page_table_mut(&mut self) -> &mut PageTable {
         // Safety: As stated in the constructor, the l4_page is guaranteed to point to valid data
         unsafe { self.deref_page_table_mut(self.l4_page.addr()) }

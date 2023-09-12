@@ -90,6 +90,16 @@ impl core::ops::BitOr for PageTableEntryFlags {
     }
 }
 
+impl core::ops::BitAnd for PageTableEntryFlags {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self {
+            value: self.value & rhs.value,
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
 pub struct PageTableEntry {
@@ -311,6 +321,13 @@ impl<A: Copy> Page<A> {
     pub fn prev(&self) -> Self {
         Self {
             addr: self.addr - self.size.as_usize(),
+            size: self.size
+        }
+    }
+
+    pub fn next(&self) -> Self {
+        Self {
+            addr: self.addr + self.size.as_usize(),
             size: self.size
         }
     }
