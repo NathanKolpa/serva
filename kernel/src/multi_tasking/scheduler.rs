@@ -3,6 +3,7 @@ pub use thread::*;
 
 use crate::arch::x86_64::interrupts::context::InterruptedContext;
 use crate::arch::x86_64::interrupts::int3;
+use crate::service::{SERVICE_TABLE, ServiceRef};
 use crate::util::collections::FixedVec;
 use crate::util::sync::SpinMutex;
 
@@ -27,7 +28,7 @@ impl Scheduler {
         lock.push(thread);
     }
 
-    pub fn tick(&self, ctx: InterruptedContext) -> *const InterruptedContext {
+    pub fn tick(&self, ctx: InterruptedContext) -> (*const InterruptedContext, Option<ServiceRef<'static>>) {
         self.save_and_set_waiting(ctx);
         self.get_next()
     }
@@ -48,7 +49,7 @@ impl Scheduler {
         }
     }
 
-    fn get_next(&self) -> *const InterruptedContext {
+    fn get_next(&self) -> (*const InterruptedContext, Option<ServiceRef<'static>>) {
         let mut current_lock = self.current.lock();
         let mut tasks_lock = self.tasks.lock();
 
@@ -76,7 +77,7 @@ impl Scheduler {
 
         let next_thread = &mut tasks_lock[next_thread_id];
         next_thread.set_state(ThreadState::Running);
-        next_thread.context_ptr()
+        (next_thread.context_ptr(), next_thread.service_id().map(|id| ServiceRef::new(&SERVICE_TABLE, id)))
     }
 }
 

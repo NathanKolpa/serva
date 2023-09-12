@@ -55,13 +55,19 @@ impl ServiceTable {
         self.root_memory_map.initialize_with(memory_map);
     }
 
+    /// Register a service spec, which serves as a factory.
+    ///
     /// # Safety
-    /// The entrypoint must be valid.
+    ///
+    /// When `privilege` is equal to `Privilege::Kernel`
+    /// then the entrypoint must point to valid and safe code.
+    /// There is no reasonable way to prevent UB because usually the entrypoint is user input,
+    /// so we buy the ticket, and take the ride.
     pub unsafe fn register_spec(
         &self,
         name: CowString,
         privilege: Privilege,
-        entrypoint: ServiceEntrypoint, // TODO: have support for requets as well, eg. data.read("/init", HEADER_OFFSET)
+        entrypoint: ServiceEntrypoint,
         spec_intents: impl IntoIterator<Item = NewIntent>,
         spec_endpoints: impl IntoIterator<Item = NewEndpoint>,
     ) -> ServiceSpecRef<'_> {
@@ -105,7 +111,7 @@ impl ServiceTable {
             intents_end,
             endpoints_start,
             endpoints_end,
-            entrypoint
+            entrypoint,
         });
 
         ServiceSpecRef::new(self, new_spec_id)
@@ -119,7 +125,11 @@ impl ServiceTable {
         mapper: &mut MemoryMapper,
         privilege: Privilege,
     ) -> Result<ThreadStack, NewMappingError> {
-        let stack_page = VirtualPage::new(VirtualAddress::new(0x800000), PageSize::Size4Kib);
+        let size = PageSize::Size4Kib;
+        let initial_pages = 4;
+
+        // begin on the last entry from the l4 index 8
+        let mut stack_page = VirtualPage::new(VirtualAddress::from_l4_index(9), size).prev();
 
         let flags = match privilege {
             Privilege::Kernel => {
@@ -137,17 +147,17 @@ impl ServiceTable {
             }
         };
 
-        // we discard the cache flush since its not mapped.
-        let _ = mapper.new_map(flags, flags, stack_page)?;
-        let _ = mapper.new_map(flags, flags, stack_page.prev())?;
+        let mut current_page = stack_page;
+        for _ in 0..initial_pages {
+            // we discard the cache flush since its not mapped.
+            let _ = mapper.new_map(flags, flags, current_page)?;
+            current_page = current_page.prev();
+        }
 
         Ok(ThreadStack::from_page(stack_page))
     }
 
-    pub fn start_service(
-        &self,
-        spec_id: Id,
-    ) -> Result<ServiceRef, NewServiceError> {
+    pub fn start_service(&self, spec_id: Id) -> Result<ServiceRef, NewServiceError> {
         let mut services = self.services.lock();
         let specs = self.specs.lock();
 
@@ -172,15 +182,18 @@ impl ServiceTable {
 
         let addr = match spec.entrypoint {
             ServiceEntrypoint::MappedFunction(addr) => addr,
-            ServiceEntrypoint::Elf() => todo!()
+            ServiceEntrypoint::Elf() => todo!(),
         };
 
-        let main_thread =
-            unsafe { Thread::start_new(None, stack, addr, Some(id)) };
+        let main_thread = unsafe { Thread::start_new(None, stack, addr, Some(id)) };
 
         SCHEDULER.add_thread(main_thread);
 
         Ok(ServiceRef::new(self, id))
+    }
+
+    pub fn get_service_by_id(&self, id: Id) -> ServiceRef<'_> {
+        ServiceRef::new(self, id)
     }
 }
 

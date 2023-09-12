@@ -14,4 +14,9 @@ impl<'a> ServiceRef<'a> {
     pub fn id(&self) -> Id {
         self.id
     }
+
+    pub fn set_memory_map_active(&self) {
+        let services = self.table.services.lock();
+        services[self.id].memory_map.set_active()
+    }
 }

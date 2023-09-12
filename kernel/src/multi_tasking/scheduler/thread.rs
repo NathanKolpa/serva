@@ -59,4 +59,8 @@ impl Thread {
     pub fn context_ptr(&self) -> *const InterruptedContext {
         &self.context
     }
+
+    pub fn service_id(&self) -> Option<usize> {
+        self.service_id
+    }
 }

@@ -108,20 +108,24 @@ mod test_service {
     use crate::service::{Privilege, ServiceEntrypoint, SERVICE_TABLE};
     use crate::util::address::VirtualAddress;
     use alloc::borrow::Cow;
+    use crate::arch::x86_64::halt;
 
     pub fn setup_test_service() {
         let entry = ServiceEntrypoint::MappedFunction(VirtualAddress::from(
             test_service_start as *const (),
         ));
+        let dep_entry = ServiceEntrypoint::MappedFunction(VirtualAddress::from(
+            test_dep_service_start as *const (),
+        ));
 
-        let _dep = unsafe {
+        let dep_spec = unsafe {
             let intents = [];
             let endpoints = [];
 
             SERVICE_TABLE.register_spec(
                 Cow::Borrowed("Test Dependency"),
                 Privilege::Kernel,
-                entry.clone(),
+                dep_entry,
                 intents,
                 endpoints,
             )
@@ -140,7 +144,10 @@ mod test_service {
             )
         };
 
-        unsafe { SERVICE_TABLE.start_service(spec.id()).unwrap() };
+        debug_println!("First!");
+        SERVICE_TABLE.start_service(spec.id()).unwrap();
+        debug_println!("Second!");
+        SERVICE_TABLE.start_service(dep_spec.id()).unwrap();
     }
 
     fn syscall(args: SyscallArgs) -> SyscallResult {
@@ -148,16 +155,35 @@ mod test_service {
     }
 
     fn test_service_start() -> ! {
+        let mut nonce = 0;
         loop {
-            debug_println!("test");
+            nonce += 1;
             syscall(SyscallArgs {
                 syscall: 0,
-                arg0: 0,
+                arg0: nonce,
                 arg1: 1,
                 arg2: 2,
                 arg3: 3,
             })
             .unwrap();
+            halt();
+        }
+    }
+
+    fn test_dep_service_start() -> ! {
+        let mut nonce = 0;
+        loop {
+            nonce += 10;
+            debug_println!("Hello I am a dependency! {}", nonce);
+            halt();
+            // syscall(SyscallArgs {
+            //     syscall: 0,
+            //     arg0: 0,
+            //     arg1: 1,
+            //     arg2: 2,
+            //     arg3: 3,
+            // })
+            // .unwrap();
         }
     }
 }

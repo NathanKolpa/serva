@@ -1,6 +1,8 @@
 mod connect;
 mod error;
 mod hello;
+mod disconnect;
+mod send;
 
 use crate::arch::x86_64::syscalls::SyscallArgs;
 

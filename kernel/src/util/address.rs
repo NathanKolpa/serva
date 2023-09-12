@@ -159,6 +159,12 @@ impl Address<VirtualAddressMarker> {
     pub fn as_mut_ptr<T>(&self) -> *mut T {
         self.as_u64() as *mut T
     }
+
+    #[doc(cfg(target_arch = "x86_64"))]
+    #[cfg(target_arch = "x86_64")]
+    pub fn from_l4_index(index: u16) -> Self {
+        Self::new((index as usize) << (12 + 9 + 9 + 9))
+    }
 }
 
 impl<T> Add<usize> for Address<T> {

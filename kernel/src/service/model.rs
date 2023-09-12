@@ -14,11 +14,8 @@ pub enum Privilege {
     /// A service that can manage userland without restrictions.
     System,
 
-    /// A service that can manage userland but in a protected way.
-    User,
-
     /// A service that can only use the resources specified in the [`ServiceSpec`].
-    Local,
+    User,
 }
 
 #[derive(Clone)]

@@ -209,6 +209,10 @@ impl MemoryMapper {
 
             let mut entry = table[index];
 
+            if page_level == 4 && entry.flags().borrowed() {
+                return Err(NewMappingError::NotOwned);
+            }
+
             match (page_level, entry.flags().present()) {
                 (1, true) => {
                     return Err(NewMappingError::AlreadyMapped);
