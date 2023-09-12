@@ -12,6 +12,8 @@ pub use error::{SyscallError, SyscallResult};
 
 pub type SyscallHandler = fn(&SyscallArgs) -> SyscallResult;
 
+const EXPECT_CURRENT_SERVICE: &str = "syscalls can only be called from services";
+
 static SYSCALL_TABLE: [SyscallHandler; 2] = [hello::hello_syscall, connect::connect_syscall];
 
 const USER_CALLS_START: usize = 0;
@@ -29,7 +31,7 @@ pub fn handle_user_syscall(args: &SyscallArgs) -> SyscallResult {
     let call_index = args.syscall as usize;
 
     if call_index < USER_CALLS_START {
-        return Err(SyscallError::InsufficientPrivilege(Privilege::Kernel));
+        return Err(SyscallError::InsufficientPrivilege);
     }
 
     handle_kernel_syscall(args)

@@ -20,6 +20,12 @@ pub enum NewServiceError {
     SpecNotFound,
 }
 
+#[derive(Debug)]
+pub enum ConnectError {
+    SpecDoesNotExist,
+    FailedToStartService(NewServiceError)
+}
+
 pub struct NewIntent {
     pub target_spec_id: Id,
     pub endpoint_id: Id,
@@ -112,6 +118,7 @@ impl ServiceTable {
             endpoints_start,
             endpoints_end,
             entrypoint,
+            service: None,
         });
 
         ServiceSpecRef::new(self, new_spec_id)
@@ -157,11 +164,32 @@ impl ServiceTable {
         Ok(ThreadStack::from_page(stack_page))
     }
 
-    pub fn start_service(&self, spec_id: Id) -> Result<ServiceRef, NewServiceError> {
-        let mut services = self.services.lock();
+    pub fn connect_to(&self, source_service: Id, target_spec: Id) -> Result<ServiceRef, ConnectError> {
         let specs = self.specs.lock();
 
-        let spec = specs.get(spec_id).ok_or(NewServiceError::SpecNotFound)?;
+        let src = specs.get(target_spec).ok_or(ConnectError::SpecDoesNotExist)?;
+
+        let target_service = match src.service {
+            Some(service_id) => ServiceRef::new(self, service_id),
+            None => {
+                drop(specs);
+                self.start_service(target_spec).map_err(ConnectError::FailedToStartService)?
+            }
+        };
+
+        let mut services = self.services.lock();
+        services[source_service].connections.push(Connection {
+            service_id: target_service.id()
+        });
+
+        Ok(target_service)
+    }
+
+    pub fn start_service(&self, spec_id: Id) -> Result<ServiceRef, NewServiceError> {
+        let mut services = self.services.lock();
+        let mut specs = self.specs.lock();
+
+        let spec = specs.get_mut(spec_id).ok_or(NewServiceError::SpecNotFound)?;
 
         let mut memory_map = self
             .root_memory_map
@@ -179,6 +207,8 @@ impl ServiceTable {
             spec_id,
             connections: Vec::new(),
         });
+
+        spec.service = Some(id);
 
         let addr = match spec.entrypoint {
             ServiceEntrypoint::MappedFunction(addr) => addr,

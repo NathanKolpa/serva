@@ -39,6 +39,7 @@ pub struct ServiceSpec {
     pub endpoints_start: Id,
     pub endpoints_end: Id,
 
+    pub service: Option<Id>,
     pub entrypoint: ServiceEntrypoint,
 }
 

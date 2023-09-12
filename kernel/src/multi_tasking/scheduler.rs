@@ -23,6 +23,11 @@ impl Scheduler {
         }
     }
 
+    pub fn current_service(&self) -> Option<ServiceRef> {
+        let current_lock = self.current.lock();
+        current_lock.map(|x| ServiceRef::new(&SERVICE_TABLE, x))
+    }
+
     pub fn add_thread(&self, thread: Thread) {
         let mut lock = self.tasks.lock();
         lock.push(thread);

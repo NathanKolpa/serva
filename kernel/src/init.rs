@@ -118,7 +118,7 @@ mod test_service {
             test_dep_service_start as *const (),
         ));
 
-        let dep_spec = unsafe {
+        let _dep_spec = unsafe {
             let intents = [];
             let endpoints = [];
 
@@ -146,8 +146,6 @@ mod test_service {
 
         debug_println!("First!");
         SERVICE_TABLE.start_service(spec.id()).unwrap();
-        debug_println!("Second!");
-        SERVICE_TABLE.start_service(dep_spec.id()).unwrap();
     }
 
     fn syscall(args: SyscallArgs) -> SyscallResult {
@@ -155,17 +153,19 @@ mod test_service {
     }
 
     fn test_service_start() -> ! {
-        let mut nonce = 0;
+        debug_println!("Connecting");
+
+        let connection = syscall(SyscallArgs {
+            syscall: 1,
+            arg0: 0,
+            arg1: 0,
+            arg2: 0,
+            arg3: 0
+        }).unwrap();
+
+        debug_println!("Connection Handle {}", connection);
+
         loop {
-            nonce += 1;
-            syscall(SyscallArgs {
-                syscall: 0,
-                arg0: nonce,
-                arg1: 1,
-                arg2: 2,
-                arg3: 3,
-            })
-            .unwrap();
             halt();
         }
     }
