@@ -1,9 +1,9 @@
 use crate::memory::MemoryMapper;
+use crate::util::address::VirtualAddress;
 use alloc::borrow::Cow;
 use alloc::vec::Vec;
-use crate::util::address::VirtualAddress;
 
-pub type Id = usize;
+pub type Id = u32;
 pub type CowString = Cow<'static, str>;
 
 #[derive(Debug, Copy, Clone)]
@@ -21,7 +21,37 @@ pub enum Privilege {
 #[derive(Clone)]
 pub enum ServiceEntrypoint {
     MappedFunction(VirtualAddress),
-    Elf() // TODO: place a request here!
+    Elf(), // TODO: place a request here!
+}
+
+pub enum EndpointParameter {
+    SizedBuffer(u32),
+    StreamHandle(u32),
+    UnsizedBuffer,
+}
+
+impl EndpointParameter {
+    fn type_id(&self) -> u64 {
+        match self {
+            EndpointParameter::SizedBuffer(_) => 0,
+            EndpointParameter::StreamHandle(_) => 1,
+            EndpointParameter::UnsizedBuffer => 2,
+        }
+    }
+
+    fn data(&self) -> u64 {
+        match self {
+            EndpointParameter::SizedBuffer(size) => *size as u64,
+            EndpointParameter::StreamHandle(handle) => *handle as u64,
+            EndpointParameter::UnsizedBuffer => 0,
+        }
+    }
+}
+
+impl Into<u64> for EndpointParameter {
+    fn into(self) -> u64 {
+        (self.type_id() << (64 - 2)) | self.data()
+    }
 }
 
 pub struct ServiceSpec {

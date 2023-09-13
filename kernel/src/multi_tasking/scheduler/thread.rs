@@ -16,7 +16,7 @@ pub struct Thread {
     name: Option<&'static str>,
     context: InterruptedContext,
     state: ThreadState,
-    service_id: Option<usize>,
+    service_id: Option<u32>,
 }
 
 impl Thread {
@@ -24,7 +24,7 @@ impl Thread {
         name: Option<&'static str>,
         stack: ThreadStack,
         entrypoint: VirtualAddress,
-        service_id: Option<usize>
+        service_id: Option<u32>
     ) -> Self {
         Self {
             name,
@@ -60,7 +60,7 @@ impl Thread {
         &self.context
     }
 
-    pub fn service_id(&self) -> Option<usize> {
+    pub fn service_id(&self) -> Option<u32> {
         self.service_id
     }
 }

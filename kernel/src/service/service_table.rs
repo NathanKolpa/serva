@@ -75,33 +75,33 @@ impl ServiceTable {
         let mut intents = self.intents.lock();
         let mut endpoints = self.endpoints.lock();
 
-        let new_spec_id = specs.len();
+        let new_spec_id = specs.len() as u32;
 
-        let intents_start = intents.len();
+        let intents_start = intents.len() as u32;
         intents.extend(spec_intents.into_iter().map(|n| Intent {
             endpoint_id: n.endpoint_id,
             target_spec_id: n.target_spec_id,
             source_spec_id: new_spec_id,
             required: n.required,
         }));
-        let intents_end = intents.len();
+        let intents_end = intents.len() as u32;
 
         // TODO: validate requirements.
         // TODO: validate that the name is unique.
 
-        let endpoints_start = endpoints.len();
+        let endpoints_start = endpoints.len() as u32;
         endpoints.extend(
             spec_endpoints
                 .into_iter()
                 .enumerate()
                 .map(|(i, n)| Endpoint {
-                    id: endpoints_start + i,
+                    id: endpoints_start + i as u32,
                     spec_id: new_spec_id,
                     name: n.name,
                     min_privilege: n.min_privilege,
                 }),
         );
-        let endpoints_end = endpoints.len();
+        let endpoints_end = endpoints.len() as u32;
 
         specs.push(ServiceSpec {
             id: new_spec_id,
@@ -167,7 +167,7 @@ impl ServiceTable {
         let mut specs = self.specs.lock();
 
         let spec = specs
-            .get_mut(spec_id)
+            .get_mut(spec_id as usize)
             .ok_or(NewServiceError::SpecNotFound)?;
 
         let mut memory_map = self
@@ -175,7 +175,7 @@ impl ServiceTable {
             .new_mapper(true)
             .map_err(NewServiceError::FailedToCreateNewMemoryMap)?;
 
-        let id = services.len();
+        let id = services.len() as u32;
 
         let stack = Self::create_stack(&mut memory_map, spec.privilege)
             .map_err(NewServiceError::FailedToCreateStack)?;

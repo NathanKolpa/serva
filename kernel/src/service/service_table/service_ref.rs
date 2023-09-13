@@ -26,14 +26,14 @@ impl<'a> ServiceRef<'a> {
 
     pub fn set_memory_map_active(&self) {
         let services = self.table.services.lock();
-        services[self.id].memory_map.set_active()
+        services[self.id as usize].memory_map.set_active()
     }
 
     pub fn deref_incoming_pointer<'b>(&self, address: VirtualAddress) -> Option<&'b [u8]> {
         let specs = self.table.specs.lock();
         let services = self.table.services.lock();
-        let service = &services[self.id];
-        let spec = &specs[service.spec_id];
+        let service = &services[self.id as usize];
+        let spec = &specs[service.spec_id as usize];
 
         let is_page_safe = |flags: PageTableEntryFlags| -> bool {
             match spec.privilege {
@@ -67,7 +67,7 @@ impl<'a> ServiceRef<'a> {
         let specs = self.table.specs.lock();
 
         let src = specs
-            .get(target_spec)
+            .get(target_spec as usize)
             .ok_or(ConnectError::SpecDoesNotExist)?;
 
         let target_service = match src.service {
@@ -80,8 +80,8 @@ impl<'a> ServiceRef<'a> {
         };
 
         let mut services = self.table.services.lock();
-        let service = &mut services[self.id];
-        let handle = service.connections.len();
+        let service = &mut services[self.id as usize];
+        let handle = service.connections.len() as u32;
         service.connections.push(Connection {
             service_id: target_service.id(),
         });
@@ -94,7 +94,7 @@ impl Debug for ServiceRef<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let lock = self.table.services.lock();
 
-        let service = &lock[self.id];
+        let service = &lock[self.id as usize];
 
         f.debug_struct("Service")
             .field("id", &service.id)

@@ -358,3 +358,9 @@ impl MemoryMapper {
             .map(|(i, index)| (4 - i as u8, index as usize))
     }
 }
+
+impl Drop for MemoryMapper {
+    fn drop(&mut self) {
+        todo!("Clean up all owned frames")
+    }
+}
