@@ -1,5 +1,6 @@
 use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
+use crate::util::collections::FixedVec;
 use alloc::borrow::Cow;
 use alloc::vec::Vec;
 
@@ -71,11 +72,11 @@ pub struct ServiceSpec {
 
     pub service: Option<Id>,
     pub entrypoint: ServiceEntrypoint,
+    pub discovery_allowed: bool,
 }
 
 pub struct Intent {
     pub source_spec_id: Id,
-    pub target_spec_id: Id,
     pub endpoint_id: Id,
     pub required: bool,
 }
@@ -85,10 +86,12 @@ pub struct Endpoint {
     pub spec_id: Id,
     pub name: CowString,
     pub min_privilege: Privilege,
+    pub parameters: FixedVec<16, EndpointParameter>,
 }
 
 pub struct Connection {
     pub service_id: Id,
+    pub current_request: Option<Request>
 }
 
 pub struct Service {
@@ -96,4 +99,8 @@ pub struct Service {
     pub spec_id: Id,
     pub connections: Vec<Connection>,
     pub memory_map: MemoryMapper,
+}
+
+pub struct Request {
+    pub endpoint_id: Id,
 }

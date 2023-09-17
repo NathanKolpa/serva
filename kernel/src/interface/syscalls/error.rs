@@ -1,6 +1,6 @@
+use crate::service::Privilege;
 use core::fmt::{Debug, Formatter};
 use core::mem::{transmute, transmute_copy};
-use crate::service::Privilege;
 
 #[repr(u64)]
 #[derive(Copy, Clone, Debug)]
@@ -16,7 +16,11 @@ pub enum SyscallError {
 
     InvalidPointerMappings,
 
-    InvalidStringArgument
+    InvalidStringArgument,
+
+    ConnectionClosed,
+
+    ConnectionBusy,
 }
 
 pub type SyscallResult = Result<u64, SyscallError>;
@@ -24,9 +28,7 @@ pub type SyscallResult = Result<u64, SyscallError>;
 pub fn encode_result(result: SyscallResult) -> u64 {
     let binary_result: i64 = match result {
         Ok(v) => v as i64,
-        Err(e) => {
-            -(e as i64)
-        },
+        Err(e) => -(e as i64),
     };
 
     binary_result as u64
@@ -34,8 +36,8 @@ pub fn encode_result(result: SyscallResult) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use core::mem::size_of;
     use super::*;
+    use core::mem::size_of;
 
     #[test_case]
     fn test_encode_ok_result() {

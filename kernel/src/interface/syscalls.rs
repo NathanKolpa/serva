@@ -1,7 +1,8 @@
 mod connect;
+mod disconnect;
 mod error;
 mod hello;
-mod disconnect;
+mod request;
 mod send;
 
 use crate::arch::x86_64::syscalls::SyscallArgs;
@@ -14,7 +15,11 @@ pub type SyscallHandler = fn(&SyscallArgs) -> SyscallResult;
 
 const EXPECT_CURRENT_SERVICE: &str = "syscalls can only be called from services";
 
-static SYSCALL_TABLE: [SyscallHandler; 2] = [hello::hello_syscall, connect::connect_syscall];
+static SYSCALL_TABLE: [SyscallHandler; 3] = [
+    hello::hello_syscall,
+    connect::connect_syscall,
+    request::request_syscall,
+];
 
 const USER_CALLS_START: usize = 0;
 

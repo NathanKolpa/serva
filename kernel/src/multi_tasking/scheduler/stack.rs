@@ -14,7 +14,7 @@ impl ThreadStack {
 
     pub fn from_page(page: VirtualPage) -> Self {
         Self {
-            top: page.end_addr()
+            top: page.end_addr(),
         }
     }
 

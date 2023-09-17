@@ -13,11 +13,9 @@ their code even starts executing.
 
 Each service runs with a so-called _privilege level_, these levels are (in descending order):
 
-| Name   | Limitations and Powers                                                                                                    | Use-case                                                                  |
-|:-------|:--------------------------------------------------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
-| Kernel | Kernel privileges (Ring0) and privileged syscalls.                                                                        | Drivers                                                                   |
-| System | Can make requests not specified in the service spec. These powers only apply to services of equal or lower privilege.     | System management, equivalent of the root user                            |
-| Local  | Can only make request to services specified in the service spec.                                                          | Everything else                                                           |
+1. Kernel
+2. System
+3. User
 
 These privilege levels encapsulate all but the most obscure use-cases of Unix's users and groups.
 It must be noted that services can implement their own definition of what it means to be a "user of the system."

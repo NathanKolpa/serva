@@ -1,6 +1,8 @@
+mod endpoint_ref;
 mod service_ref;
 mod spec_ref;
 
+pub use endpoint_ref::*;
 pub use service_ref::*;
 pub use spec_ref::*;
 
@@ -10,6 +12,7 @@ use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
 use crate::service::model::*;
 use crate::service::service_table::spec_ref::ServiceSpecRef;
 use crate::util::address::VirtualAddress;
+use crate::util::collections::FixedVec;
 use crate::util::sync::{PanicOnce, SpinMutex};
 use alloc::vec::Vec;
 
@@ -21,15 +24,14 @@ pub enum NewServiceError {
 }
 
 pub struct NewIntent {
-    pub target_spec_id: Id,
     pub endpoint_id: Id,
     pub required: bool,
 }
 
 pub struct NewEndpoint {
-    pub target_spec_id: Id,
     pub min_privilege: Privilege,
     pub name: CowString,
+    pub parameters: FixedVec<16, EndpointParameter>,
 }
 
 pub struct ServiceTable {
@@ -67,6 +69,7 @@ impl ServiceTable {
         &self,
         name: CowString,
         privilege: Privilege,
+        discovery_allowed: bool,
         entrypoint: ServiceEntrypoint,
         spec_intents: impl IntoIterator<Item = NewIntent>,
         spec_endpoints: impl IntoIterator<Item = NewEndpoint>,
@@ -80,7 +83,6 @@ impl ServiceTable {
         let intents_start = intents.len() as u32;
         intents.extend(spec_intents.into_iter().map(|n| Intent {
             endpoint_id: n.endpoint_id,
-            target_spec_id: n.target_spec_id,
             source_spec_id: new_spec_id,
             required: n.required,
         }));
@@ -99,6 +101,7 @@ impl ServiceTable {
                     spec_id: new_spec_id,
                     name: n.name,
                     min_privilege: n.min_privilege,
+                    parameters: n.parameters,
                 }),
         );
         let endpoints_end = endpoints.len() as u32;
@@ -113,6 +116,7 @@ impl ServiceTable {
             endpoints_end,
             entrypoint,
             service: None,
+            discovery_allowed,
         });
 
         ServiceSpecRef::new(self, new_spec_id)

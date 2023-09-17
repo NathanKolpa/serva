@@ -321,14 +321,14 @@ impl<A: Copy> Page<A> {
     pub fn prev(&self) -> Self {
         Self {
             addr: self.addr - self.size.as_usize(),
-            size: self.size
+            size: self.size,
         }
     }
 
     pub fn next(&self) -> Self {
         Self {
             addr: self.addr + self.size.as_usize(),
-            size: self.size
+            size: self.size,
         }
     }
 }

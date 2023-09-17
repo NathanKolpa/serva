@@ -1,13 +1,20 @@
-use core::fmt::{Debug, Formatter};
 use crate::arch::x86_64::paging::{PageTableEntryFlags, VirtualPage};
-use crate::service::model::{Connection, Id};
+use crate::service::model::{Connection, Id, Request, ServiceSpec};
 use crate::service::{NewServiceError, Privilege, ServiceTable};
 use crate::util::address::VirtualAddress;
+use core::fmt::{Debug, Formatter};
+use crate::service::service_table::spec_ref::ServiceSpecRef;
 
 #[derive(Debug)]
 pub enum ConnectError {
     SpecDoesNotExist,
     FailedToStartService(NewServiceError),
+}
+
+#[derive(Debug)]
+pub enum CreateRequestError {
+    InvalidEndpointId,
+    ConnectionBusy
 }
 
 pub struct ServiceRef<'a> {
@@ -17,7 +24,10 @@ pub struct ServiceRef<'a> {
 
 impl<'a> ServiceRef<'a> {
     pub fn new(table: &'a ServiceTable, service_id: Id) -> Self {
-        Self { table, id: service_id }
+        Self {
+            table,
+            id: service_id,
+        }
     }
 
     pub fn id(&self) -> Id {
@@ -38,7 +48,7 @@ impl<'a> ServiceRef<'a> {
         let is_page_safe = |flags: PageTableEntryFlags| -> bool {
             match spec.privilege {
                 Privilege::Kernel => flags.present(),
-                _ => flags.present() && flags.user_accessible()
+                _ => flags.present() && flags.user_accessible(),
             }
         };
 
@@ -60,10 +70,7 @@ impl<'a> ServiceRef<'a> {
         unsafe { Some(core::slice::from_raw_parts(address.as_ptr(), len)) }
     }
 
-    pub fn connect_to(
-        &self,
-        target_spec: Id,
-    ) -> Result<Id, ConnectError> {
+    pub fn connect_to(&self, target_spec: Id) -> Result<Id, ConnectError> {
         let specs = self.table.specs.lock();
 
         let src = specs
@@ -74,7 +81,8 @@ impl<'a> ServiceRef<'a> {
             Some(service_id) => ServiceRef::new(self.table, service_id),
             None => {
                 drop(specs);
-                self.table.start_service(target_spec)
+                self.table
+                    .start_service(target_spec)
                     .map_err(ConnectError::FailedToStartService)?
             }
         };
@@ -84,9 +92,46 @@ impl<'a> ServiceRef<'a> {
         let handle = service.connections.len() as u32;
         service.connections.push(Connection {
             service_id: target_service.id(),
+            current_request: None,
         });
 
         Ok(handle)
+    }
+
+    pub fn get_service_from_connection(&self, connection_id: Id) -> Option<ServiceRef> {
+        let services = self.table.services.lock();
+        let service = &services[self.id as usize];
+
+        return service
+            .connections
+            .get(connection_id as usize)
+            .map(|conn| ServiceRef {
+                id: conn.service_id,
+                table: self.table,
+            });
+    }
+
+    pub fn spec(&self) -> ServiceSpecRef {
+        let services = self.table.services.lock();
+        let service = &services[self.id as usize];
+        ServiceSpecRef::new(self.table, service.spec_id)
+    }
+
+    pub fn create_request_to(&self, connection_id: Id, endpoint_id: Id) -> Result<(), CreateRequestError> {
+        // TODO: check if the endpoint id is valid for the connection.
+
+        let mut services = self.table.services.lock();
+        let service = &mut services[self.id as usize];
+
+        let current_request = &mut service.connections[connection_id as usize].current_request;
+
+        if current_request.is_some() {
+            return Err(CreateRequestError::ConnectionBusy);
+        }
+
+        *current_request = Some(Request { endpoint_id });
+
+        Ok(())
     }
 }
 

@@ -106,11 +106,14 @@ mod test_service {
     use crate::arch::x86_64::syscalls::SyscallArgs;
     use crate::interface::syscalls::{handle_kernel_syscall, SyscallResult};
     use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
-    use crate::service::{Privilege, ServiceEntrypoint, SERVICE_TABLE};
+    use crate::service::{Privilege, ServiceEntrypoint, SERVICE_TABLE, NewEndpoint};
     use crate::util::address::VirtualAddress;
     use alloc::borrow::Cow;
+    use alloc::boxed::Box;
     use alloc::ffi::CString;
+    use alloc::vec::Vec;
     use core::ffi::CStr;
+    use crate::util::collections::FixedVec;
 
     pub fn setup_test_service() {
         let entry = ServiceEntrypoint::MappedFunction(VirtualAddress::from(
@@ -120,13 +123,23 @@ mod test_service {
             test_dep_service_start as *const (),
         ));
 
+        let _test = Box::new(1);
+
         let _dep_spec = unsafe {
             let intents = [];
-            let endpoints = [];
+
+            let mut endpoints = Vec::new();
+            endpoints.push(NewEndpoint {
+                name: Cow::Borrowed("echo"),
+                parameters: FixedVec::new(),
+                min_privilege: Privilege::User
+            });
+
 
             SERVICE_TABLE.register_spec(
                 Cow::Borrowed("Test Dependency"),
                 Privilege::Kernel,
+                false,
                 dep_entry,
                 intents,
                 endpoints,
@@ -140,11 +153,22 @@ mod test_service {
             SERVICE_TABLE.register_spec(
                 Cow::Borrowed("test"),
                 Privilege::Kernel,
+                false,
                 entry,
                 intents,
                 endpoints,
             )
         };
+
+        // een endpoint request schrijft gewoon een ruwe blokken data.
+        // de kernel validate deze data losjes.
+        // de request handler, leest deze parameter voor parameter uit.
+
+        // een request forwad ziet er zo uit:
+        // - een endpoint met een unsized buffer.
+        // client schrijft de data zoals hij normaal naar de target schrijft.
+        // de proxy dumpt deze data naar de target.
+        // de target kan gewoon als normaal uitlezen.
 
         debug_println!("First!");
         SERVICE_TABLE.start_service(spec.id()).unwrap();
@@ -169,6 +193,21 @@ mod test_service {
         .unwrap();
 
         debug_println!("Connection Handle {}", connection);
+
+        let endpoint_name = CString::new("echo").unwrap();
+
+        debug_println!("Requesting to {endpoint_name:?}");
+
+        syscall(SyscallArgs {
+            syscall: 2,
+            arg0: connection,
+            arg1: endpoint_name.as_ptr() as u64,
+            arg2: 0,
+            arg3: 0,
+        })
+        .unwrap();
+
+        debug_println!("Request open");
 
         loop {
             halt();

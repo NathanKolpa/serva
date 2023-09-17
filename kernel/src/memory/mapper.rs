@@ -286,8 +286,7 @@ impl MemoryMapper {
 
             if walk_entry.level() == 4 {
                 flags = walk_entry.value().flags();
-            }
-            else {
+            } else {
                 flags = flags & walk_entry.value().flags();
             }
 

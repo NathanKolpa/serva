@@ -24,7 +24,7 @@ impl Thread {
         name: Option<&'static str>,
         stack: ThreadStack,
         entrypoint: VirtualAddress,
-        service_id: Option<u32>
+        service_id: Option<u32>,
     ) -> Self {
         Self {
             name,
@@ -36,7 +36,7 @@ impl Thread {
                 GDT.kernel_data,
             )),
             state: ThreadState::Waiting,
-            service_id
+            service_id,
         }
     }
 
