@@ -7,16 +7,16 @@ use alloc::vec::Vec;
 pub type Id = u32;
 pub type CowString = Cow<'static, str>;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub enum Privilege {
     /// A service that runs directly in the kernel, a.k.a. Ring0
-    Kernel = 0,
+    Kernel = 2,
 
     /// A service that can manage userland without restrictions.
-    System,
+    System = 1,
 
     /// A service that can only use the resources specified in the [`ServiceSpec`].
-    User,
+    User = 0,
 }
 
 #[derive(Clone)]
@@ -78,7 +78,6 @@ pub struct ServiceSpec {
 pub struct Intent {
     pub source_spec_id: Id,
     pub endpoint_id: Id,
-    pub required: bool,
 }
 
 pub struct Endpoint {
@@ -91,7 +90,7 @@ pub struct Endpoint {
 
 pub struct Connection {
     pub service_id: Id,
-    pub current_request: Option<Request>
+    pub current_request: Option<Request>,
 }
 
 pub struct Service {

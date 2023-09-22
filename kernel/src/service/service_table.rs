@@ -25,11 +25,14 @@ pub enum NewServiceError {
 
 #[derive(Debug)]
 pub enum NewSpecError {
-    NameTaken
+    NameTaken,
+    RequirementsNotMet,
 }
 
+#[derive(Clone)]
 pub struct NewIntent {
-    pub endpoint_id: Id,
+    pub spec_name: CowString,
+    pub endpoint_name: CowString,
     pub required: bool,
 }
 
@@ -83,23 +86,29 @@ impl ServiceTable {
             return Err(NewSpecError::NameTaken);
         }
 
-
         let mut specs = self.specs.lock();
-        let mut intents = self.intents.lock();
-        let mut endpoints = self.endpoints.lock();
-
         let new_spec_id = specs.len() as u32;
+        drop(specs);
+
+        let mut intents = self.intents.lock();
+
 
         let intents_start = intents.len() as u32;
-        intents.extend(spec_intents.into_iter().map(|n| Intent {
-            endpoint_id: n.endpoint_id,
-            source_spec_id: new_spec_id,
-            required: n.required,
-        }));
+        for new_intent in spec_intents {
+            let endpoint = self.resolve_new_intent_to_endpoint(privilege, &new_intent);
+
+            if let Some(endpoint) = endpoint {
+                intents.push(Intent {
+                    endpoint_id: endpoint,
+                    source_spec_id: new_spec_id,
+                });
+            } else if new_intent.required {
+                return Err(NewSpecError::RequirementsNotMet);
+            }
+        }
         let intents_end = intents.len() as u32;
 
-        // TODO: validate requirements.
-
+        let mut endpoints = self.endpoints.lock();
         let endpoints_start = endpoints.len() as u32;
         endpoints.extend(
             spec_endpoints
@@ -115,6 +124,7 @@ impl ServiceTable {
         );
         let endpoints_end = endpoints.len() as u32;
 
+        let mut specs = self.specs.lock();
         specs.push(ServiceSpec {
             id: new_spec_id,
             name,
@@ -129,6 +139,21 @@ impl ServiceTable {
         });
 
         Ok(ServiceSpecRef::new(self, new_spec_id))
+    }
+
+    fn resolve_new_intent_to_endpoint(
+        &self,
+        privilege: Privilege,
+        intent: &NewIntent,
+    ) -> Option<Id> {
+        let spec = self.resolve_spec_name(&intent.spec_name)?;
+        let endpoint = spec.get_endpoint_by_name(&intent.endpoint_name)?;
+
+        if !endpoint.is_allowed(privilege) {
+            return None;
+        }
+
+        Some(endpoint.id())
     }
 
     pub fn resolve_spec_name(&self, name: &str) -> Option<ServiceSpecRef> {

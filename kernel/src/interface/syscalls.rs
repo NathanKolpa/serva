@@ -36,7 +36,7 @@ pub fn handle_user_syscall(args: &SyscallArgs) -> SyscallResult {
     let call_index = args.syscall as usize;
 
     if call_index < USER_CALLS_START {
-        return Err(SyscallError::InsufficientPrivilege);
+        return Err(SyscallError::OperationNotPermitted);
     }
 
     handle_kernel_syscall(args)

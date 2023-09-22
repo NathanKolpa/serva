@@ -106,14 +106,14 @@ mod test_service {
     use crate::arch::x86_64::syscalls::SyscallArgs;
     use crate::interface::syscalls::{handle_kernel_syscall, SyscallResult};
     use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
-    use crate::service::{Privilege, ServiceEntrypoint, SERVICE_TABLE, NewEndpoint};
+    use crate::service::{NewEndpoint, Privilege, ServiceEntrypoint, SERVICE_TABLE, NewIntent};
     use crate::util::address::VirtualAddress;
+    use crate::util::collections::FixedVec;
     use alloc::borrow::Cow;
     use alloc::boxed::Box;
     use alloc::ffi::CString;
     use alloc::vec::Vec;
     use core::ffi::CStr;
-    use crate::util::collections::FixedVec;
 
     pub fn setup_test_service() {
         let entry = ServiceEntrypoint::MappedFunction(VirtualAddress::from(
@@ -132,32 +132,41 @@ mod test_service {
             endpoints.push(NewEndpoint {
                 name: Cow::Borrowed("echo"),
                 parameters: FixedVec::new(),
-                min_privilege: Privilege::User
+                min_privilege: Privilege::User,
             });
 
-
-            SERVICE_TABLE.register_spec(
-                Cow::Borrowed("Test Dependency"),
-                Privilege::Kernel,
-                false,
-                dep_entry,
-                intents,
-                endpoints,
-            ).unwrap()
+            SERVICE_TABLE
+                .register_spec(
+                    Cow::Borrowed("Test Dependency"),
+                    Privilege::Kernel,
+                    false,
+                    dep_entry,
+                    intents,
+                    endpoints,
+                )
+                .unwrap()
         };
 
         let spec = unsafe {
-            let intents = [];
+            let mut intents = Vec::new();
+            intents.push(NewIntent {
+                spec_name: Cow::Borrowed("Test Dependency"),
+                endpoint_name: Cow::Borrowed("echo"),
+                required: true,
+            });
+
             let endpoints = [];
 
-            SERVICE_TABLE.register_spec(
-                Cow::Borrowed("test"),
-                Privilege::Kernel,
-                false,
-                entry,
-                intents,
-                endpoints,
-            ).unwrap()
+            SERVICE_TABLE
+                .register_spec(
+                    Cow::Borrowed("test"),
+                    Privilege::Kernel,
+                    false,
+                    entry,
+                    intents,
+                    endpoints,
+                )
+                .unwrap()
         };
 
         // een endpoint request schrijft gewoon een ruwe blokken data.

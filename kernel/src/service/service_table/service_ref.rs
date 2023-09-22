@@ -1,9 +1,9 @@
 use crate::arch::x86_64::paging::{PageTableEntryFlags, VirtualPage};
 use crate::service::model::{Connection, Id, Request, ServiceSpec};
+use crate::service::service_table::spec_ref::ServiceSpecRef;
 use crate::service::{NewServiceError, Privilege, ServiceTable};
 use crate::util::address::VirtualAddress;
 use core::fmt::{Debug, Formatter};
-use crate::service::service_table::spec_ref::ServiceSpecRef;
 
 #[derive(Debug)]
 pub enum ConnectError {
@@ -14,7 +14,8 @@ pub enum ConnectError {
 #[derive(Debug)]
 pub enum CreateRequestError {
     InvalidEndpointId,
-    ConnectionBusy
+    ConnectionBusy,
+    NotPermitted
 }
 
 pub struct ServiceRef<'a> {
@@ -117,14 +118,28 @@ impl<'a> ServiceRef<'a> {
         ServiceSpecRef::new(self.table, service.spec_id)
     }
 
-    pub fn create_request_to(&self, connection_id: Id, endpoint_id: Id) -> Result<(), CreateRequestError> {
+    pub fn create_request_to(
+        &self,
+        connection_id: Id,
+        endpoint_id: Id,
+    ) -> Result<(), CreateRequestError> {
         // TODO: check if the endpoint id is valid for the connection.
 
         let mut services = self.table.services.lock();
+        let specs = self.table.specs.lock();
         let service = &mut services[self.id as usize];
+        let spec = &specs[service.spec_id as usize];
+
+        let intents = self.table.intents.lock();
+        let satisfying_intent = (spec.intents_start..spec.intents_end)
+            .map(|id| &intents[id as usize])
+            .find(|intent| intent.endpoint_id == endpoint_id);
+
+        if satisfying_intent.is_none() {
+            return Err(CreateRequestError::NotPermitted);
+        }
 
         let current_request = &mut service.connections[connection_id as usize].current_request;
-
         if current_request.is_some() {
             return Err(CreateRequestError::ConnectionBusy);
         }

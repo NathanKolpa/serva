@@ -1,5 +1,5 @@
 use crate::service::model::Id;
-use crate::service::ServiceTable;
+use crate::service::{Privilege, ServiceTable};
 
 pub struct EndpointRef<'a> {
     table: &'a ServiceTable,
@@ -13,5 +13,12 @@ impl<'a> EndpointRef<'a> {
 
     pub fn id(&self) -> Id {
         self.id
+    }
+
+    pub fn is_allowed(&self, privilege: Privilege) -> bool {
+        let endpoints = self.table.endpoints.lock();
+        let endpoint_privilege = endpoints[self.id as usize].min_privilege;
+
+        privilege >= endpoint_privilege
     }
 }

@@ -8,7 +8,7 @@ pub enum SyscallError {
     /// The syscall number was not recognised as a valid syscall.
     UnknownSyscall = 1,
 
-    InsufficientPrivilege,
+    OperationNotPermitted,
 
     OutOfMemory,
 
