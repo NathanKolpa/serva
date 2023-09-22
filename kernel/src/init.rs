@@ -143,7 +143,7 @@ mod test_service {
                 dep_entry,
                 intents,
                 endpoints,
-            )
+            ).unwrap()
         };
 
         let spec = unsafe {
@@ -157,7 +157,7 @@ mod test_service {
                 entry,
                 intents,
                 endpoints,
-            )
+            ).unwrap()
         };
 
         // een endpoint request schrijft gewoon een ruwe blokken data.

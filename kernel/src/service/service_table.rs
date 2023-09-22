@@ -23,6 +23,11 @@ pub enum NewServiceError {
     SpecNotFound,
 }
 
+#[derive(Debug)]
+pub enum NewSpecError {
+    NameTaken
+}
+
 pub struct NewIntent {
     pub endpoint_id: Id,
     pub required: bool,
@@ -73,7 +78,12 @@ impl ServiceTable {
         entrypoint: ServiceEntrypoint,
         spec_intents: impl IntoIterator<Item = NewIntent>,
         spec_endpoints: impl IntoIterator<Item = NewEndpoint>,
-    ) -> ServiceSpecRef<'_> {
+    ) -> Result<ServiceSpecRef<'_>, NewSpecError> {
+        if self.resolve_spec_name(&name).is_some() {
+            return Err(NewSpecError::NameTaken);
+        }
+
+
         let mut specs = self.specs.lock();
         let mut intents = self.intents.lock();
         let mut endpoints = self.endpoints.lock();
@@ -89,7 +99,6 @@ impl ServiceTable {
         let intents_end = intents.len() as u32;
 
         // TODO: validate requirements.
-        // TODO: validate that the name is unique.
 
         let endpoints_start = endpoints.len() as u32;
         endpoints.extend(
@@ -119,7 +128,7 @@ impl ServiceTable {
             discovery_allowed,
         });
 
-        ServiceSpecRef::new(self, new_spec_id)
+        Ok(ServiceSpecRef::new(self, new_spec_id))
     }
 
     pub fn resolve_spec_name(&self, name: &str) -> Option<ServiceSpecRef> {
