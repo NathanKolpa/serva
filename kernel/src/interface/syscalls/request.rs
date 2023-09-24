@@ -13,7 +13,7 @@ pub fn request_syscall(args: &SyscallArgs) -> SyscallResult {
     let connection_id = args.arg0 as Id;
 
     let Some(target_endpoint_name) =
-        current_service.deref_incoming_pointer(VirtualAddress::from(args.arg1))
+        atomic_block(|| current_service.deref_incoming_pointer(VirtualAddress::from(args.arg1)))
     else {
         return Err(SyscallError::InvalidPointerMappings);
     };
@@ -36,7 +36,7 @@ pub fn request_syscall(args: &SyscallArgs) -> SyscallResult {
         let result = current_service.create_request_to(connection_id, target_endpoint.id());
 
         match result {
-            Ok(id) => Ok(0),
+            Ok(()) => Ok(0),
             Err(err) => match err {
                 CreateRequestError::NotPermitted => return Err(SyscallError::OperationNotPermitted),
                 CreateRequestError::ConnectionBusy => return Err(SyscallError::ConnectionBusy),

@@ -1,9 +1,15 @@
 use crate::arch::x86_64::paging::{PageTableEntryFlags, VirtualPage};
-use crate::service::model::{Connection, Id, Request, ServiceSpec};
+use crate::multi_tasking::scheduler::{ThreadBlocker, SCHEDULER};
+use crate::service::model::{Connection, Id, Pipe, Request, ServiceSpec};
 use crate::service::service_table::spec_ref::ServiceSpecRef;
 use crate::service::{NewServiceError, Privilege, ServiceTable};
 use crate::util::address::VirtualAddress;
+use crate::util::sync::SpinMutex;
+use alloc::collections::VecDeque;
+use alloc::sync::Arc;
+use core::cmp::min;
 use core::fmt::{Debug, Formatter};
+use core::ops::DerefMut;
 
 #[derive(Debug)]
 pub enum ConnectError {
@@ -15,7 +21,12 @@ pub enum ConnectError {
 pub enum CreateRequestError {
     InvalidEndpointId,
     ConnectionBusy,
-    NotPermitted
+    NotPermitted,
+}
+
+#[derive(Debug)]
+pub enum WriteError {
+    InvalidConnection,
 }
 
 pub struct ServiceRef<'a> {
@@ -91,10 +102,19 @@ impl<'a> ServiceRef<'a> {
         let mut services = self.table.services.lock();
         let service = &mut services[self.id as usize];
         let handle = service.connections.len() as u32;
-        service.connections.push(Connection {
-            service_id: target_service.id(),
+
+        let new_conn = Arc::new(SpinMutex::new(Connection {
+            target_service: target_service.id(),
             current_request: None,
-        });
+            request: Pipe::default(),
+            response: Pipe::default(),
+        }));
+
+        service.connections.push(new_conn.clone());
+
+        services[target_service.id as usize]
+            .connections
+            .push(new_conn);
 
         Ok(handle)
     }
@@ -107,9 +127,58 @@ impl<'a> ServiceRef<'a> {
             .connections
             .get(connection_id as usize)
             .map(|conn| ServiceRef {
-                id: conn.service_id,
+                id: conn.lock().target_service,
                 table: self.table,
             });
+    }
+
+    pub fn write(&self, connection: Id, buffer: &[u8], start: usize) -> Result<usize, WriteError> {
+        let buffer = &buffer[start..buffer.len()];
+
+        let services = self.table.services.lock();
+        let service = &services[self.id as usize];
+
+        if connection as usize >= service.connections.len() {
+            return Err(WriteError::InvalidConnection);
+        }
+
+        let mut conn = service.connections[connection as usize].lock();
+        let pipe = self.get_write_pipe(conn.deref_mut());
+
+        let written = min(buffer.len(), pipe.buffer.capacity() - pipe.buffer.len());
+        let write_buffer = &buffer[0..written];
+
+        pipe.buffer.extend(write_buffer);
+        Ok(written)
+    }
+
+    pub fn block_until_write_available(&self, connection: Id) {
+        {
+            let services = self.table.services.lock();
+            let service = &services[self.id as usize];
+
+            let mut conn = service.connections[connection as usize].lock();
+            let pipe = self.get_write_pipe(conn.deref_mut());
+
+            match &mut pipe.write_block {
+                None => {
+                    pipe.write_block = Some(SCHEDULER.block_current());
+                }
+                Some(block) => {
+                    block.block_current();
+                }
+            }
+        }
+
+        SCHEDULER.yield_current();
+    }
+
+    fn get_write_pipe<'b>(&self, connection: &'b mut Connection) -> &'b mut Pipe {
+        if connection.target_service == self.id {
+            &mut connection.response
+        } else {
+            &mut connection.request
+        }
     }
 
     pub fn spec(&self) -> ServiceSpecRef {
@@ -139,7 +208,9 @@ impl<'a> ServiceRef<'a> {
             return Err(CreateRequestError::NotPermitted);
         }
 
-        let current_request = &mut service.connections[connection_id as usize].current_request;
+        let mut conn = service.connections[connection_id as usize].lock();
+
+        let current_request = &mut conn.current_request;
         if current_request.is_some() {
             return Err(CreateRequestError::ConnectionBusy);
         }

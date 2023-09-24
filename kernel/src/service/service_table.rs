@@ -39,7 +39,8 @@ pub struct NewIntent {
 pub struct NewEndpoint {
     pub min_privilege: Privilege,
     pub name: CowString,
-    pub parameters: FixedVec<16, EndpointParameter>,
+    pub request: FixedVec<16, EndpointParameter>,
+    pub response: FixedVec<16, EndpointParameter>,
 }
 
 pub struct ServiceTable {
@@ -119,7 +120,8 @@ impl ServiceTable {
                     spec_id: new_spec_id,
                     name: n.name,
                     min_privilege: n.min_privilege,
-                    parameters: n.parameters,
+                    request: n.request,
+                    response: n.response,
                 }),
         );
         let endpoints_end = endpoints.len() as u32;

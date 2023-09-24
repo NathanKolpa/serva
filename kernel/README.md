@@ -6,7 +6,8 @@ Must have:
 
 - Loading elf programs.
 - Reimplement the frame allocator with the buddy allocator algorithm.
-- Implement drop for MemoryMapper, which deallocates all owned tables.
+- Implement `Drop` for MemoryMapper, which deallocates all owned tables.
+- Kernel syscalls should start from a big number, so not to cause any ABI conflicts.
 
 Should have:
 

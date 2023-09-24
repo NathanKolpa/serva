@@ -10,6 +10,44 @@ use crate::util::sync::SpinMutex;
 mod stack;
 mod thread;
 
+pub struct ThreadBlocker {
+    thread_id: ThreadId,
+    last_thread_id: ThreadId,
+    scheduler: &'static Scheduler,
+}
+
+impl ThreadBlocker {
+    pub fn unblock_one(self) -> Option<ThreadBlocker> {
+        let mut tasks = self.scheduler.tasks.lock();
+        tasks[self.thread_id].unblock().map(|next| ThreadBlocker {
+            thread_id: next,
+            scheduler: self.scheduler,
+            last_thread_id: self.last_thread_id
+        })
+    }
+
+    pub fn block_current(&mut self) {
+        let next_block = self.scheduler.block_current();
+        let mut tasks = self.scheduler.tasks.lock();
+        tasks[self.last_thread_id].set_next_block(next_block.thread_id);
+        self.last_thread_id = next_block.thread_id;
+    }
+}
+
+impl Drop for ThreadBlocker {
+    fn drop(&mut self) {
+        let mut current = ThreadBlocker {
+            scheduler: self.scheduler,
+            thread_id: self.thread_id,
+            last_thread_id: self.last_thread_id
+        };
+
+        while let Some(next) = current.unblock_one() {
+            current = next;
+        }
+    }
+}
+
 pub struct Scheduler {
     current: SpinMutex<Option<ThreadId>>,
     tasks: SpinMutex<FixedVec<10, Thread>>,
@@ -37,6 +75,21 @@ impl Scheduler {
         lock.push(thread);
     }
 
+    pub fn block_current(&'static self) -> ThreadBlocker {
+        let current = self
+            .current
+            .lock()
+            .expect("cannot block threads when the scheduler is not yet started");
+        let mut tasks_lock = self.tasks.lock();
+
+        tasks_lock[current].block();
+        ThreadBlocker {
+            scheduler: self,
+            thread_id: current,
+            last_thread_id: current
+        }
+    }
+
     pub fn tick(
         &self,
         ctx: InterruptedContext,
@@ -57,7 +110,7 @@ impl Scheduler {
 
             let current_task = &mut tasks_lock[current];
             current_task.save(ctx);
-            current_task.set_state(ThreadState::Waiting);
+            current_task.finish_tick();
         }
     }
 
@@ -88,7 +141,7 @@ impl Scheduler {
         *current_lock = Some(next_thread_id);
 
         let next_thread = &mut tasks_lock[next_thread_id];
-        next_thread.set_state(ThreadState::Running);
+        next_thread.start_tick();
         (
             next_thread.context_ptr(),
             next_thread

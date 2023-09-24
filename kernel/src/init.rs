@@ -131,7 +131,8 @@ mod test_service {
             let mut endpoints = Vec::new();
             endpoints.push(NewEndpoint {
                 name: Cow::Borrowed("echo"),
-                parameters: FixedVec::new(),
+                request: FixedVec::new(),
+                response: FixedVec::new(),
                 min_privilege: Privilege::User,
             });
 
@@ -218,17 +219,30 @@ mod test_service {
 
         debug_println!("Request open");
 
+        let buffer = [1u8; 100];
+
         loop {
-            halt();
+
+            debug_println!("Writing {} bytes", buffer.len());
+
+            syscall(SyscallArgs {
+                syscall: 3,
+                arg0: connection,
+                arg1: buffer.as_ptr() as u64,
+                arg2: buffer.len() as u64,
+                arg3: 0
+            }).unwrap();
+
+            // halt();
         }
     }
 
     fn test_dep_service_start() -> ! {
         let mut nonce = 0;
         loop {
-            nonce += 10;
-            debug_println!("Hello I am a dependency! {}", nonce);
-            halt();
+            // nonce += 10;
+            // debug_println!("Hello I am a dependency! {}", nonce);
+            // halt();
             // syscall(SyscallArgs {
             //     syscall: 0,
             //     arg0: 0,

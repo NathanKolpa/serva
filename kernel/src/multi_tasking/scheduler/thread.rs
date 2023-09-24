@@ -40,8 +40,41 @@ impl Thread {
         }
     }
 
-    pub fn set_state(&mut self, state: ThreadState) {
-        self.state = state;
+    pub fn finish_tick(&mut self) {
+        match self.state {
+            ThreadState::Running => self.state = ThreadState::Waiting,
+            _ => {}
+        }
+    }
+
+    pub fn start_tick(&mut self) {
+        match self.state {
+            ThreadState::Waiting => self.state = ThreadState::Running,
+            _ => {}
+        }
+    }
+
+    pub fn block(&mut self) {
+        self.state = ThreadState::Blocked { next: None }
+    }
+
+    pub fn unblock(&mut self) -> Option<ThreadId> {
+        match self.state {
+            ThreadState::Blocked { next } => {
+                self.state = ThreadState::Waiting;
+                next
+            }
+            _ => None,
+        }
+    }
+
+    pub fn set_next_block(&mut self, next_id: ThreadId) {
+        match &mut self.state {
+            ThreadState::Blocked { next } => {
+                *next = Some(next_id);
+            }
+            _ => {}
+        }
     }
 
     pub fn can_run(&self) -> bool {

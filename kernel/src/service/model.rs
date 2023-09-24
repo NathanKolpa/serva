@@ -2,7 +2,11 @@ use crate::memory::MemoryMapper;
 use crate::util::address::VirtualAddress;
 use crate::util::collections::FixedVec;
 use alloc::borrow::Cow;
+use alloc::collections::VecDeque;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
+use crate::multi_tasking::scheduler::ThreadBlocker;
+use crate::util::sync::SpinMutex;
 
 pub type Id = u32;
 pub type CowString = Cow<'static, str>;
@@ -85,18 +89,37 @@ pub struct Endpoint {
     pub spec_id: Id,
     pub name: CowString,
     pub min_privilege: Privilege,
-    pub parameters: FixedVec<16, EndpointParameter>,
+    pub request: FixedVec<16, EndpointParameter>,
+    pub response: FixedVec<16, EndpointParameter>,
+}
+
+pub struct Pipe {
+    pub buffer: VecDeque<u8>,
+    pub write_block: Option<ThreadBlocker>,
+    pub read_block: Option<ThreadBlocker>,
+}
+
+impl Default for Pipe {
+    fn default() -> Self {
+        Self {
+            write_block: None,
+            read_block: None,
+            buffer: VecDeque::with_capacity(1024 * 2)
+        }
+    }
 }
 
 pub struct Connection {
-    pub service_id: Id,
+    pub target_service: Id,
     pub current_request: Option<Request>,
+    pub request: Pipe,
+    pub response: Pipe,
 }
 
 pub struct Service {
     pub id: Id,
     pub spec_id: Id,
-    pub connections: Vec<Connection>,
+    pub connections: Vec<Arc<SpinMutex<Connection>>>,
     pub memory_map: MemoryMapper,
 }
 
