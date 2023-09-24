@@ -22,7 +22,7 @@ impl ThreadBlocker {
         tasks[self.thread_id].unblock().map(|next| ThreadBlocker {
             thread_id: next,
             scheduler: self.scheduler,
-            last_thread_id: self.last_thread_id
+            last_thread_id: self.last_thread_id,
         })
     }
 
@@ -39,7 +39,7 @@ impl Drop for ThreadBlocker {
         let mut current = ThreadBlocker {
             scheduler: self.scheduler,
             thread_id: self.thread_id,
-            last_thread_id: self.last_thread_id
+            last_thread_id: self.last_thread_id,
         };
 
         while let Some(next) = current.unblock_one() {
@@ -86,7 +86,7 @@ impl Scheduler {
         ThreadBlocker {
             scheduler: self,
             thread_id: current,
-            last_thread_id: current
+            last_thread_id: current,
         }
     }
 

@@ -106,7 +106,7 @@ mod test_service {
     use crate::arch::x86_64::syscalls::SyscallArgs;
     use crate::interface::syscalls::{handle_kernel_syscall, SyscallResult};
     use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
-    use crate::service::{NewEndpoint, Privilege, ServiceEntrypoint, SERVICE_TABLE, NewIntent};
+    use crate::service::{NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SERVICE_TABLE};
     use crate::util::address::VirtualAddress;
     use crate::util::collections::FixedVec;
     use alloc::borrow::Cow;
@@ -222,7 +222,6 @@ mod test_service {
         let buffer = [1u8; 100];
 
         loop {
-
             debug_println!("Writing {} bytes", buffer.len());
 
             syscall(SyscallArgs {
@@ -230,8 +229,9 @@ mod test_service {
                 arg0: connection,
                 arg1: buffer.as_ptr() as u64,
                 arg2: buffer.len() as u64,
-                arg3: 0
-            }).unwrap();
+                arg3: 0,
+            })
+            .unwrap();
 
             // halt();
         }

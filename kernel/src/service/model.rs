@@ -1,12 +1,12 @@
 use crate::memory::MemoryMapper;
+use crate::multi_tasking::scheduler::ThreadBlocker;
 use crate::util::address::VirtualAddress;
 use crate::util::collections::FixedVec;
+use crate::util::sync::SpinMutex;
 use alloc::borrow::Cow;
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use crate::multi_tasking::scheduler::ThreadBlocker;
-use crate::util::sync::SpinMutex;
 
 pub type Id = u32;
 pub type CowString = Cow<'static, str>;
@@ -104,7 +104,7 @@ impl Default for Pipe {
         Self {
             write_block: None,
             read_block: None,
-            buffer: VecDeque::with_capacity(1024 * 2)
+            buffer: VecDeque::with_capacity(1024 * 2),
         }
     }
 }

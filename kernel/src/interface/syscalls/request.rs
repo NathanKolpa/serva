@@ -38,7 +38,9 @@ pub fn request_syscall(args: &SyscallArgs) -> SyscallResult {
         match result {
             Ok(()) => Ok(0),
             Err(err) => match err {
-                CreateRequestError::NotPermitted => return Err(SyscallError::OperationNotPermitted),
+                CreateRequestError::NotPermitted => {
+                    return Err(SyscallError::OperationNotPermitted)
+                }
                 CreateRequestError::ConnectionBusy => return Err(SyscallError::ConnectionBusy),
                 CreateRequestError::InvalidEndpointId => {
                     panic!("Expected the endpoint to be valid before creating the request")

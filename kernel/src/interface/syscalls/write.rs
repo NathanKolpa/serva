@@ -36,7 +36,7 @@ pub fn request_syscall(args: &SyscallArgs) -> SyscallResult {
                 debug_println!("Check {} {}", buffer_size, written);
 
                 if start >= source_buffer.len() {
-                    return Ok(0)
+                    return Ok(0);
                 }
 
                 debug_println!("Uhh {} {}", buffer_size, written);

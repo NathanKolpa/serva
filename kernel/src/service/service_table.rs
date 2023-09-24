@@ -93,7 +93,6 @@ impl ServiceTable {
 
         let mut intents = self.intents.lock();
 
-
         let intents_start = intents.len() as u32;
         for new_intent in spec_intents {
             let endpoint = self.resolve_new_intent_to_endpoint(privilege, &new_intent);
