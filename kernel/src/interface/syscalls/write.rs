@@ -28,18 +28,16 @@ pub fn request_syscall(args: &SyscallArgs) -> SyscallResult {
             Err(err) => {
                 return match err {
                     WriteError::InvalidConnection => Err(SyscallError::ConnectionClosed),
+                    WriteError::NoOpenRequest => Err(SyscallError::NoOpenRequest),
+                    WriteError::ParameterOverflow => Err(SyscallError::ParameterOverflow)
                 }
             }
             Ok(written) => {
                 start += written;
 
-                debug_println!("Check {} {}", buffer_size, written);
-
                 if start >= source_buffer.len() {
                     return Ok(0);
                 }
-
-                debug_println!("Uhh {} {}", buffer_size, written);
 
                 // because the buffer could not be written in its entirety, it must be full.
                 // Therefore wait until the other side reads from the buffer.

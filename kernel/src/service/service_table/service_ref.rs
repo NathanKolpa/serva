@@ -1,15 +1,17 @@
 use crate::arch::x86_64::paging::{PageTableEntryFlags, VirtualPage};
 use crate::multi_tasking::scheduler::{ThreadBlocker, SCHEDULER};
-use crate::service::model::{Connection, Id, Pipe, Request, ServiceSpec};
+use crate::service::model::{Connection, Endpoint, Id, Pipe, Request, ServiceSpec};
 use crate::service::service_table::spec_ref::ServiceSpecRef;
-use crate::service::{NewServiceError, Privilege, ServiceTable};
+use crate::service::{EndpointParameter, NewServiceError, Privilege, ServiceTable};
 use crate::util::address::VirtualAddress;
+use crate::util::collections::FixedVec;
 use crate::util::sync::SpinMutex;
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use core::cmp::min;
 use core::fmt::{Debug, Formatter};
-use core::ops::DerefMut;
+use core::mem::size_of;
+use core::ops::{Deref, DerefMut};
 
 #[derive(Debug)]
 pub enum ConnectError {
@@ -27,6 +29,8 @@ pub enum CreateRequestError {
 #[derive(Debug)]
 pub enum WriteError {
     InvalidConnection,
+    NoOpenRequest,
+    ParameterOverflow,
 }
 
 pub struct ServiceRef<'a> {
@@ -142,13 +146,48 @@ impl<'a> ServiceRef<'a> {
             return Err(WriteError::InvalidConnection);
         }
 
+        let endpoints = self.table.endpoints.lock();
         let mut conn = service.connections[connection as usize].lock();
+        let endpoint = conn
+            .current_request
+            .as_ref()
+            .map(|req| &endpoints[req.endpoint_id as usize])
+            .ok_or(WriteError::NoOpenRequest)?;
+
+        let params = self.get_params(conn.deref(), endpoint);
         let pipe = self.get_write_pipe(conn.deref_mut());
 
         let written = min(buffer.len(), pipe.buffer.capacity() - pipe.buffer.len());
-        let write_buffer = &buffer[0..written];
+        let mut write_iter = buffer[0..written].iter();
 
-        pipe.buffer.extend(write_buffer);
+        let next_sizes = |index: usize| -> Result<Option<usize>, WriteError> {
+            let current_param = params.get(index).ok_or(WriteError::ParameterOverflow)?;
+
+            match current_param {
+                EndpointParameter::SizedBuffer(size) => {
+                    assert_ne!(*size, 0);
+                    Ok(Some(*size as usize))
+                }
+                EndpointParameter::StreamHandle(_) => todo!(),
+                EndpointParameter::UnsizedBuffer => Ok(None),
+            }
+        };
+
+        let mut max_size = next_sizes(pipe.write_arg_index as usize)?;
+
+        for byte in write_iter {
+            if let Some(max) = max_size {
+                if pipe.current_arg_written + 1 > max {
+                    pipe.write_arg_index += 1;
+                    pipe.current_arg_written = 0;
+                    max_size = next_sizes(pipe.write_arg_index as usize)?;
+                }
+            }
+
+            pipe.buffer.push_back(*byte);
+            pipe.current_arg_written += 1;
+        }
+
         Ok(written)
     }
 
@@ -178,6 +217,18 @@ impl<'a> ServiceRef<'a> {
             &mut connection.response
         } else {
             &mut connection.request
+        }
+    }
+
+    fn get_params<'b>(
+        &self,
+        connection: &Connection,
+        endpoint: &'b Endpoint,
+    ) -> &'b FixedVec<16, EndpointParameter> {
+        if connection.target_service == self.id {
+            &endpoint.response
+        } else {
+            &endpoint.request
         }
     }
 

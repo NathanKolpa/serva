@@ -95,6 +95,9 @@ pub struct Endpoint {
 
 pub struct Pipe {
     pub buffer: VecDeque<u8>,
+    pub write_arg_index: u8,
+    pub read_arg_index: u8,
+    pub current_arg_written: usize,
     pub write_block: Option<ThreadBlocker>,
     pub read_block: Option<ThreadBlocker>,
 }
@@ -102,6 +105,9 @@ pub struct Pipe {
 impl Default for Pipe {
     fn default() -> Self {
         Self {
+            read_arg_index: 0,
+            write_arg_index: 0,
+            current_arg_written: 0,
             write_block: None,
             read_block: None,
             buffer: VecDeque::with_capacity(1024 * 2),

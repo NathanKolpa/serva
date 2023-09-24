@@ -102,11 +102,11 @@ fn main_kernel_thread() -> ! {
 
 mod test_service {
     use crate::arch::x86_64::constants::MIN_STACK_SIZE;
-    use crate::arch::x86_64::halt;
+    use crate::arch::x86_64::{halt, halt_loop};
     use crate::arch::x86_64::syscalls::SyscallArgs;
     use crate::interface::syscalls::{handle_kernel_syscall, SyscallResult};
     use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
-    use crate::service::{NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SERVICE_TABLE};
+    use crate::service::{NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SERVICE_TABLE, EndpointParameter};
     use crate::util::address::VirtualAddress;
     use crate::util::collections::FixedVec;
     use alloc::borrow::Cow;
@@ -128,10 +128,14 @@ mod test_service {
         let _dep_spec = unsafe {
             let intents = [];
 
+            let mut request = FixedVec::new();
+            request.push(EndpointParameter::SizedBuffer(50));
+            request.push(EndpointParameter::SizedBuffer(50));
+
             let mut endpoints = Vec::new();
             endpoints.push(NewEndpoint {
                 name: Cow::Borrowed("echo"),
-                request: FixedVec::new(),
+                request,
                 response: FixedVec::new(),
                 min_privilege: Privilege::User,
             });
@@ -219,9 +223,9 @@ mod test_service {
 
         debug_println!("Request open");
 
-        let buffer = [1u8; 100];
+        let buffer = [1u8; 10];
 
-        loop {
+        for _ in 0..10 {
             debug_println!("Writing {} bytes", buffer.len());
 
             syscall(SyscallArgs {
@@ -232,25 +236,25 @@ mod test_service {
                 arg3: 0,
             })
             .unwrap();
-
-            // halt();
         }
+
+        halt_loop()
     }
 
     fn test_dep_service_start() -> ! {
         let mut nonce = 0;
         loop {
-            // nonce += 10;
-            // debug_println!("Hello I am a dependency! {}", nonce);
-            // halt();
-            // syscall(SyscallArgs {
-            //     syscall: 0,
-            //     arg0: 0,
-            //     arg1: 1,
-            //     arg2: 2,
-            //     arg3: 3,
-            // })
-            // .unwrap();
+            nonce += 10;
+            debug_println!("Hello I am a dependency! {}", nonce);
+            halt();
+            syscall(SyscallArgs {
+                syscall: 0,
+                arg0: 0,
+                arg1: 1,
+                arg2: 2,
+                arg3: 3,
+            })
+            .unwrap();
         }
     }
 }

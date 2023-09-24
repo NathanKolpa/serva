@@ -21,6 +21,10 @@ pub enum SyscallError {
     ConnectionClosed,
 
     ConnectionBusy,
+
+    NoOpenRequest,
+
+    ParameterOverflow,
 }
 
 pub type SyscallResult = Result<u64, SyscallError>;
