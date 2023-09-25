@@ -122,3 +122,16 @@ pub struct Request {
     pub endpoint_id: Id,
     pub accepted: bool
 }
+
+
+#[cfg(test)]
+mod tests {
+    use core::mem::size_of;
+    use super::*;
+
+    #[test_case]
+    fn test_parameter_size_not_larger_than_a_word() {
+        let size = size_of::<EndpointParameter>();
+        assert!(size <= 8);
+    }
+}
