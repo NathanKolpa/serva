@@ -14,20 +14,18 @@ pub struct ThreadBlocker {
     thread_id: ThreadId,
     last_thread_id: ThreadId,
     scheduler: &'static Scheduler,
-    should_drop: bool,
 }
 
 impl ThreadBlocker {
     pub fn unblock_one(mut self) -> Option<ThreadBlocker> {
-        self.should_drop = false;
-
         let mut tasks = self.scheduler.tasks.lock();
-        tasks[self.thread_id].unblock().map(|next| ThreadBlocker {
-            thread_id: next,
-            scheduler: self.scheduler,
-            last_thread_id: self.last_thread_id,
-            should_drop: true
-        })
+        if let Some(next) = tasks[self.thread_id].unblock() {
+            self.thread_id = next;
+            Some(self)
+        }
+        else {
+            None
+        }
     }
 
     pub fn block_current(&mut self) {
@@ -40,18 +38,10 @@ impl ThreadBlocker {
 
 impl Drop for ThreadBlocker {
     fn drop(&mut self) {
-        if !self.should_drop {
-            return;
-        }
+        let mut tasks = self.scheduler.tasks.lock();
+        let mut current = self.thread_id;
 
-        let mut current = ThreadBlocker {
-            scheduler: self.scheduler,
-            thread_id: self.thread_id,
-            last_thread_id: self.last_thread_id,
-            should_drop: false,
-        };
-
-        while let Some(next) = current.unblock_one() {
+        while let Some(next) = tasks[current].unblock() {
             current = next;
         }
     }
@@ -96,7 +86,6 @@ impl Scheduler {
             scheduler: self,
             thread_id: current,
             last_thread_id: current,
-            should_drop: true
         }
     }
 
