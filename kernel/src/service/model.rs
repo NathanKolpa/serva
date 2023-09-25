@@ -30,34 +30,19 @@ pub enum ServiceEntrypoint {
     Elf(), // TODO: place a request here!
 }
 
+pub enum SizedBufferType {
+    Binary,
+    SignedInteger,
+    UnsignedInteger,
+    Float,
+    Bool
+}
+
 pub enum EndpointParameter {
-    SizedBuffer(u32),
+    SizedBuffer(u32, SizedBufferType),
     StreamHandle(u32),
+    // todo: add also a dynamic buffer where the first n bytes are the size.Typed with either ascii, utf8 or binary
     UnsizedBuffer,
-}
-
-impl EndpointParameter {
-    fn type_id(&self) -> u64 {
-        match self {
-            EndpointParameter::SizedBuffer(_) => 0,
-            EndpointParameter::StreamHandle(_) => 1,
-            EndpointParameter::UnsizedBuffer => 2,
-        }
-    }
-
-    fn data(&self) -> u64 {
-        match self {
-            EndpointParameter::SizedBuffer(size) => *size as u64,
-            EndpointParameter::StreamHandle(handle) => *handle as u64,
-            EndpointParameter::UnsizedBuffer => 0,
-        }
-    }
-}
-
-impl Into<u64> for EndpointParameter {
-    fn into(self) -> u64 {
-        (self.type_id() << (64 - 2)) | self.data()
-    }
 }
 
 pub struct ServiceSpec {

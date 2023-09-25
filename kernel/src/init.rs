@@ -109,9 +109,7 @@ mod test_service {
     use crate::arch::x86_64::{halt, halt_loop};
     use crate::arch::x86_64::syscalls::SyscallArgs;
     use crate::interface::syscalls::{handle_kernel_syscall, SyscallResult};
-    use crate::service::{
-        EndpointParameter, NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SERVICE_TABLE,
-    };
+    use crate::service::{EndpointParameter, NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SERVICE_TABLE, SizedBufferType};
     use crate::util::address::VirtualAddress;
     use crate::util::collections::FixedVec;
 
@@ -129,8 +127,8 @@ mod test_service {
             let intents = [];
 
             let mut request = FixedVec::new();
-            request.push(EndpointParameter::SizedBuffer(50));
-            request.push(EndpointParameter::SizedBuffer(50));
+            request.push(EndpointParameter::SizedBuffer(50, SizedBufferType::Binary));
+            request.push(EndpointParameter::SizedBuffer(50, SizedBufferType::Binary));
 
             let mut endpoints = Vec::new();
             endpoints.push(NewEndpoint {
@@ -277,6 +275,25 @@ mod test_service {
 
             debug_println!("Request accepted with connection {connection}");
 
+            let buffer = [0; 50];
+
+            loop {
+                let bytes_read = syscall(SyscallArgs {
+                    syscall: 4,
+                    arg0: buffer.as_ptr() as u64,
+                    arg1: buffer.len() as u64,
+                    arg2: 0,
+                    arg3: 0,
+                }).unwrap();
+
+                debug_println!("Read {bytes_read} bytes");
+
+                if bytes_read == 0 {
+                    break;
+                }
+            }
+
+            debug_println!("Request finished");
 
             halt();
         }

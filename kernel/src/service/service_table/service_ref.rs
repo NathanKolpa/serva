@@ -168,7 +168,7 @@ impl<'a> ServiceRef<'a> {
             let current_param = params.get(index).ok_or(WriteError::ParameterOverflow)?;
 
             match current_param {
-                EndpointParameter::SizedBuffer(size) => {
+                EndpointParameter::SizedBuffer(size, _) => {
                     assert_ne!(*size, 0);
                     Ok(Some(*size as usize))
                 }
