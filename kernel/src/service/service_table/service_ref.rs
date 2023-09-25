@@ -31,6 +31,7 @@ pub enum WriteError {
     InvalidConnection,
     NoOpenRequest,
     ParameterOverflow,
+    RequestClosed
 }
 
 pub struct ServiceRef<'a> {
@@ -148,6 +149,7 @@ impl<'a> ServiceRef<'a> {
 
         let endpoints = self.table.endpoints.lock();
         let mut conn = service.connections[connection as usize].lock();
+
         let endpoint = conn
             .current_request
             .as_ref()
@@ -156,6 +158,10 @@ impl<'a> ServiceRef<'a> {
 
         let params = self.get_params(conn.deref(), endpoint);
         let pipe = self.get_write_pipe(conn.deref_mut());
+
+        if pipe.closed {
+            return Err(WriteError::RequestClosed);
+        }
 
         let written = min(buffer.len(), pipe.buffer.capacity() - pipe.buffer.len());
         let mut write_iter = buffer[0..written].iter();
@@ -189,6 +195,26 @@ impl<'a> ServiceRef<'a> {
         }
 
         Ok(written)
+    }
+
+    pub fn close_write(&self, connection: Id) -> Result<(), WriteError> {
+        let services = self.table.services.lock();
+        let service = &services[self.id as usize];
+
+        if connection as usize >= service.connections.len() {
+            return Err(WriteError::InvalidConnection);
+        }
+
+        let mut conn = service.connections[connection as usize].lock();
+        let pipe = self.get_write_pipe(conn.deref_mut());
+
+        if pipe.closed {
+            return Err(WriteError::RequestClosed);
+        }
+
+        pipe.closed = true;
+
+        Ok(())
     }
 
     pub fn block_until_write_available(&self, connection: Id) {

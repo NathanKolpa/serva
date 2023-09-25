@@ -19,7 +19,7 @@ static SYSCALL_TABLE: [SyscallHandler; 4] = [
     hello::hello_syscall,
     connect::connect_syscall,
     request::request_syscall,
-    write::request_syscall,
+    write::write_syscall,
 ];
 
 const USER_CALLS_START: usize = 0;

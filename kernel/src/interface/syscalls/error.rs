@@ -22,7 +22,7 @@ pub enum SyscallError {
 
     ConnectionBusy,
 
-    NoOpenRequest,
+    RequestClosed,
 
     ParameterOverflow,
 }

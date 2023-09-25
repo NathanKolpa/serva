@@ -98,6 +98,7 @@ pub struct Pipe {
     pub write_arg_index: u8,
     pub read_arg_index: u8,
     pub current_arg_written: usize,
+    pub closed: bool,
     pub write_block: Option<ThreadBlocker>,
     pub read_block: Option<ThreadBlocker>,
 }
@@ -110,6 +111,7 @@ impl Default for Pipe {
             current_arg_written: 0,
             write_block: None,
             read_block: None,
+            closed: false,
             buffer: VecDeque::with_capacity(1024 * 2),
         }
     }

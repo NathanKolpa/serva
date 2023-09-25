@@ -5,12 +5,23 @@ use crate::multi_tasking::scheduler::SCHEDULER;
 use crate::service::{Id, WriteError};
 use crate::util::address::VirtualAddress;
 
-pub fn request_syscall(args: &SyscallArgs) -> SyscallResult {
+const WRITE_END_FLAG: u64 = 1;
+
+fn map_write_error_to_syscall_error(err: WriteError) -> SyscallError {
+    match err {
+        WriteError::InvalidConnection => SyscallError::ResourceNotFound,
+        WriteError::NoOpenRequest | WriteError::RequestClosed => SyscallError::RequestClosed,
+        WriteError::ParameterOverflow => SyscallError::ParameterOverflow,
+    }
+}
+
+pub fn write_syscall(args: &SyscallArgs) -> SyscallResult {
     let current_service =
         atomic_block(|| SCHEDULER.current_service().expect(EXPECT_CURRENT_SERVICE));
 
     let connection_id = args.arg0 as Id;
     let buffer_size = args.arg2 as usize;
+    let flags = args.arg3;
 
     let Some(write_buffer) =
         atomic_block(|| current_service.deref_incoming_pointer(VirtualAddress::from(args.arg1)))
@@ -25,17 +36,17 @@ pub fn request_syscall(args: &SyscallArgs) -> SyscallResult {
         let result = current_service.write(connection_id, source_buffer, start);
 
         match result {
-            Err(err) => {
-                return match err {
-                    WriteError::InvalidConnection => Err(SyscallError::ConnectionClosed),
-                    WriteError::NoOpenRequest => Err(SyscallError::NoOpenRequest),
-                    WriteError::ParameterOverflow => Err(SyscallError::ParameterOverflow)
-                }
-            }
+            Err(err) => return Err(map_write_error_to_syscall_error(err)),
             Ok(written) => {
                 start += written;
 
                 if start >= source_buffer.len() {
+                    if (flags & WRITE_END_FLAG) != 0 {
+                        current_service
+                            .close_write(connection_id)
+                            .map_err(map_write_error_to_syscall_error)?;
+                    }
+
                     return Ok(0);
                 }
 

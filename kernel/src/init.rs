@@ -238,6 +238,19 @@ mod test_service {
             .unwrap();
         }
 
+        debug_println!("Finishing request");
+
+        syscall(SyscallArgs {
+            syscall: 3,
+            arg0: connection,
+            arg1: buffer.as_ptr() as u64,
+            arg2: 0,
+            arg3: 1, // end flag
+        })
+            .unwrap();
+
+        debug_println!("Request finished");
+
         halt_loop()
     }
 
