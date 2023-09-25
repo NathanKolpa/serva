@@ -1,6 +1,4 @@
-mod endpoint_ref;
-mod service_ref;
-mod spec_ref;
+use alloc::vec::Vec;
 
 pub use endpoint_ref::*;
 pub use service_ref::*;
@@ -14,7 +12,10 @@ use crate::service::service_table::spec_ref::ServiceSpecRef;
 use crate::util::address::VirtualAddress;
 use crate::util::collections::FixedVec;
 use crate::util::sync::{PanicOnce, SpinMutex};
-use alloc::vec::Vec;
+
+mod endpoint_ref;
+mod service_ref;
+mod spec_ref;
 
 #[derive(Debug)]
 pub enum NewServiceError {
@@ -87,7 +88,7 @@ impl ServiceTable {
             return Err(NewSpecError::NameTaken);
         }
 
-        let mut specs = self.specs.lock();
+        let specs = self.specs.lock();
         let new_spec_id = specs.len() as u32;
         drop(specs);
 
@@ -173,7 +174,7 @@ impl ServiceTable {
         let initial_pages = 4;
 
         // begin on the last entry from the l4 index 8
-        let mut stack_page = VirtualPage::new(VirtualAddress::from_l4_index(9), size).prev();
+        let stack_page = VirtualPage::new(VirtualAddress::from_l4_index(9), size).prev();
 
         let flags = match privilege {
             Privilege::Kernel => {
@@ -233,7 +234,7 @@ impl ServiceTable {
             ServiceEntrypoint::Elf() => todo!(),
         };
 
-        let main_thread = unsafe { Thread::start_new(None, stack, addr, Some(id)) };
+        let main_thread = unsafe { Thread::start_new(Some("Main"), stack, addr, Some(id)) };
 
         SCHEDULER.add_thread(main_thread);
 

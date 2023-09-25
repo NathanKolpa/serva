@@ -63,7 +63,7 @@ impl Scheduler {
 
     pub fn current_service(&self) -> Option<ServiceRef> {
         let current_lock = self.current.lock();
-        let mut tasks_lock = self.tasks.lock();
+        let tasks_lock = self.tasks.lock();
 
         current_lock
             .and_then(|thread| tasks_lock[thread].service_id())

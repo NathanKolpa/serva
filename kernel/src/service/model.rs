@@ -1,12 +1,13 @@
+use alloc::borrow::Cow;
+use alloc::collections::VecDeque;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+
 use crate::memory::MemoryMapper;
 use crate::multi_tasking::scheduler::ThreadBlocker;
 use crate::util::address::VirtualAddress;
 use crate::util::collections::FixedVec;
 use crate::util::sync::SpinMutex;
-use alloc::borrow::Cow;
-use alloc::collections::VecDeque;
-use alloc::sync::Arc;
-use alloc::vec::Vec;
 
 pub type Id = u32;
 pub type CowString = Cow<'static, str>;

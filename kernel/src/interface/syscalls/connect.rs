@@ -1,16 +1,13 @@
-use crate::arch::x86_64::interrupts::atomic_block;
-use crate::arch::x86_64::syscalls::SyscallArgs;
-use crate::interface::syscalls::{SyscallError, SyscallResult, EXPECT_CURRENT_SERVICE};
-use crate::memory::NewMappingError;
-use crate::multi_tasking::scheduler::SCHEDULER;
-use crate::service::{ConnectError, NewServiceError, ServiceRef, SERVICE_TABLE};
-use crate::util::address::VirtualAddress;
 use core::ffi::CStr;
 
-pub fn connect_syscall(args: &SyscallArgs) -> SyscallResult {
-    let current_service =
-        atomic_block(|| SCHEDULER.current_service().expect(EXPECT_CURRENT_SERVICE));
+use crate::arch::x86_64::interrupts::atomic_block;
+use crate::arch::x86_64::syscalls::SyscallArgs;
+use crate::interface::syscalls::{SyscallError, SyscallResult};
+use crate::memory::NewMappingError;
+use crate::service::{ConnectError, NewServiceError, ServiceRef, SERVICE_TABLE};
+use crate::util::address::VirtualAddress;
 
+pub fn connect_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallResult {
     let Some(target_spec_name) =
         current_service.deref_incoming_pointer(VirtualAddress::from(args.arg0))
     else {

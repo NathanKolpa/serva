@@ -1,7 +1,7 @@
-use crate::arch::x86_64::interrupts::context::InterruptStackFrame;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 
+use crate::arch::x86_64::interrupts::context::InterruptStackFrame;
 use crate::arch::x86_64::segmentation::SegmentSelector;
 use crate::util::address::VirtualAddress;
 

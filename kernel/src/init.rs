@@ -4,14 +4,14 @@ use bootloader::BootInfo;
 
 use crate::arch::x86_64::constants::MIN_STACK_SIZE;
 use crate::arch::x86_64::init::GDT;
-use crate::arch::x86_64::interrupts::{atomic_block, enable_interrupts};
+use crate::arch::x86_64::interrupts::atomic_block;
 use crate::arch::x86_64::paging::PhysicalPage;
 use crate::arch::x86_64::syscalls::init_syscalls;
 use crate::arch::x86_64::ARCH_NAME;
 use crate::arch::x86_64::{halt_loop, init_x86_64};
 use crate::debug::DEBUG_CHANNEL;
 use crate::interface::interrupts::INTERRUPT_HANDLERS;
-use crate::interface::syscalls::{handle_user_syscall, handle_user_syscall_raw};
+use crate::interface::syscalls::handle_user_syscall_raw;
 use crate::memory::heap::{map_heap, HEAP_SIZE};
 use crate::memory::{MemoryMapper, FRAME_ALLOCATOR};
 use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
@@ -101,19 +101,19 @@ fn main_kernel_thread() -> ! {
 }
 
 mod test_service {
-    use crate::arch::x86_64::constants::MIN_STACK_SIZE;
-    use crate::arch::x86_64::{halt, halt_loop};
-    use crate::arch::x86_64::syscalls::SyscallArgs;
-    use crate::interface::syscalls::{handle_kernel_syscall, SyscallResult};
-    use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
-    use crate::service::{NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SERVICE_TABLE, EndpointParameter};
-    use crate::util::address::VirtualAddress;
-    use crate::util::collections::FixedVec;
     use alloc::borrow::Cow;
     use alloc::boxed::Box;
     use alloc::ffi::CString;
     use alloc::vec::Vec;
-    use core::ffi::CStr;
+
+    use crate::arch::x86_64::halt_loop;
+    use crate::arch::x86_64::syscalls::SyscallArgs;
+    use crate::interface::syscalls::{handle_kernel_syscall, SyscallResult};
+    use crate::service::{
+        EndpointParameter, NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SERVICE_TABLE,
+    };
+    use crate::util::address::VirtualAddress;
+    use crate::util::collections::FixedVec;
 
     pub fn setup_test_service() {
         let entry = ServiceEntrypoint::MappedFunction(VirtualAddress::from(
@@ -247,7 +247,7 @@ mod test_service {
             arg2: 0,
             arg3: 1, // end flag
         })
-            .unwrap();
+        .unwrap();
 
         debug_println!("Request finished");
 
@@ -255,19 +255,6 @@ mod test_service {
     }
 
     fn test_dep_service_start() -> ! {
-        let mut nonce = 0;
-        loop {
-            nonce += 10;
-            debug_println!("Hello I am a dependency! {}", nonce);
-            halt();
-            syscall(SyscallArgs {
-                syscall: 0,
-                arg0: 0,
-                arg1: 1,
-                arg2: 2,
-                arg3: 3,
-            })
-            .unwrap();
-        }
+        loop {}
     }
 }

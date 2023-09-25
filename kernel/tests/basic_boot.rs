@@ -4,8 +4,10 @@
 #![test_runner(kernel::testing::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
+
+use bootloader::{entry_point, BootInfo};
+
 use kernel::arch::x86_64::halt_loop;
 
 entry_point!(_start);

@@ -1,25 +1,29 @@
+use error::encode_result;
+pub use error::{SyscallError, SyscallResult};
+
+use crate::arch::x86_64::interrupts::atomic_block;
+use crate::arch::x86_64::syscalls::SyscallArgs;
+use crate::multi_tasking::scheduler::SCHEDULER;
+use crate::service::ServiceRef;
+
+mod accept;
 mod connect;
 mod disconnect;
 mod error;
 mod hello;
+mod read;
 mod request;
 mod write;
 
-use crate::arch::x86_64::syscalls::SyscallArgs;
+pub type SyscallHandler = fn(&SyscallArgs, ServiceRef) -> SyscallResult;
 
-use crate::service::Privilege;
-use error::encode_result;
-pub use error::{SyscallError, SyscallResult};
-
-pub type SyscallHandler = fn(&SyscallArgs) -> SyscallResult;
-
-const EXPECT_CURRENT_SERVICE: &str = "syscalls can only be called from services";
-
-static SYSCALL_TABLE: [SyscallHandler; 4] = [
+static SYSCALL_TABLE: [SyscallHandler; 6] = [
     hello::hello_syscall,
     connect::connect_syscall,
     request::request_syscall,
     write::write_syscall,
+    read::read_syscall,
+    accept::accept_syscall,
 ];
 
 const USER_CALLS_START: usize = 0;
@@ -31,7 +35,13 @@ pub fn handle_kernel_syscall(args: &SyscallArgs) -> SyscallResult {
         return Err(SyscallError::UnknownSyscall);
     }
 
-    (SYSCALL_TABLE[call_index])(&args)
+    let current_service = atomic_block(|| {
+        SCHEDULER
+            .current_service()
+            .expect("syscalls should only be called from services")
+    });
+
+    (SYSCALL_TABLE[call_index])(&args, current_service)
 }
 pub fn handle_user_syscall(args: &SyscallArgs) -> SyscallResult {
     let call_index = args.syscall as usize;

@@ -1,6 +1,4 @@
-use crate::service::Privilege;
-use core::fmt::{Debug, Formatter};
-use core::mem::{transmute, transmute_copy};
+use core::fmt::Debug;
 
 #[repr(u64)]
 #[derive(Copy, Clone, Debug)]
@@ -41,7 +39,6 @@ pub fn encode_result(result: SyscallResult) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::mem::size_of;
 
     #[test_case]
     fn test_encode_ok_result() {

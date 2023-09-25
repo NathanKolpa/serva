@@ -1,15 +1,12 @@
-use crate::arch::x86_64::interrupts::atomic_block;
-use crate::arch::x86_64::syscalls::SyscallArgs;
-use crate::interface::syscalls::{SyscallError, SyscallResult, EXPECT_CURRENT_SERVICE};
-use crate::multi_tasking::scheduler::SCHEDULER;
-use crate::service::{CreateRequestError, Id};
-use crate::util::address::VirtualAddress;
 use core::ffi::CStr;
 
-pub fn request_syscall(args: &SyscallArgs) -> SyscallResult {
-    let current_service =
-        atomic_block(|| SCHEDULER.current_service().expect(EXPECT_CURRENT_SERVICE));
+use crate::arch::x86_64::interrupts::atomic_block;
+use crate::arch::x86_64::syscalls::SyscallArgs;
+use crate::interface::syscalls::{SyscallError, SyscallResult};
+use crate::service::{CreateRequestError, Id, ServiceRef};
+use crate::util::address::VirtualAddress;
 
+pub fn request_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallResult {
     let connection_id = args.arg0 as Id;
 
     let Some(target_endpoint_name) =

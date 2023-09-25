@@ -6,13 +6,16 @@ use crate::util::address::VirtualAddress;
 
 pub type ThreadId = usize;
 
+#[derive(Debug)]
 pub enum ThreadState {
     Running,
     Waiting,
     Blocked { next: Option<ThreadId> },
 }
 
+#[derive(Debug)]
 pub struct Thread {
+    #[allow(dead_code)] // impl Debug ignores the usage of this field
     name: Option<&'static str>,
     context: InterruptedContext,
     state: ThreadState,

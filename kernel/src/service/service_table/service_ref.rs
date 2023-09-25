@@ -1,17 +1,16 @@
+use alloc::sync::Arc;
+use core::cmp::min;
+use core::fmt::{Debug, Formatter};
+use core::ops::{Deref, DerefMut};
+
 use crate::arch::x86_64::paging::{PageTableEntryFlags, VirtualPage};
-use crate::multi_tasking::scheduler::{ThreadBlocker, SCHEDULER};
-use crate::service::model::{Connection, Endpoint, Id, Pipe, Request, ServiceSpec};
+use crate::multi_tasking::scheduler::SCHEDULER;
+use crate::service::model::{Connection, Endpoint, Id, Pipe, Request};
 use crate::service::service_table::spec_ref::ServiceSpecRef;
 use crate::service::{EndpointParameter, NewServiceError, Privilege, ServiceTable};
 use crate::util::address::VirtualAddress;
 use crate::util::collections::FixedVec;
 use crate::util::sync::SpinMutex;
-use alloc::collections::VecDeque;
-use alloc::sync::Arc;
-use core::cmp::min;
-use core::fmt::{Debug, Formatter};
-use core::mem::size_of;
-use core::ops::{Deref, DerefMut};
 
 #[derive(Debug)]
 pub enum ConnectError {
@@ -31,7 +30,7 @@ pub enum WriteError {
     InvalidConnection,
     NoOpenRequest,
     ParameterOverflow,
-    RequestClosed
+    RequestClosed,
 }
 
 pub struct ServiceRef<'a> {
@@ -164,7 +163,7 @@ impl<'a> ServiceRef<'a> {
         }
 
         let written = min(buffer.len(), pipe.buffer.capacity() - pipe.buffer.len());
-        let mut write_iter = buffer[0..written].iter();
+        let write_iter = buffer[0..written].iter();
 
         let next_sizes = |index: usize| -> Result<Option<usize>, WriteError> {
             let current_param = params.get(index).ok_or(WriteError::ParameterOverflow)?;

@@ -1,8 +1,9 @@
+use linked_list_allocator::LockedHeap;
+
 use crate::arch::x86_64::paging::{PageSize, PageTableEntryFlags, VirtualPage};
 use crate::memory::flush::TableCacheFlush;
 use crate::memory::{MemoryMapper, NewMappingError};
 use crate::util::address::VirtualAddress;
-use linked_list_allocator::LockedHeap;
 
 const HEAP_START: VirtualAddress = VirtualAddress::new(0x_4444_4444_0000);
 pub const HEAP_SIZE: usize = 100 * 1024;
