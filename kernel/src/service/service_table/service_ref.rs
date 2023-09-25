@@ -116,9 +116,8 @@ impl<'a> ServiceRef<'a> {
 
         service.connections.push(new_conn.clone());
 
-        services[target_service.id as usize]
-            .connections
-            .push(new_conn);
+        let target_service = &mut services[target_service.id as usize];
+        target_service.connections.push(new_conn);
 
         Ok(handle)
     }
@@ -291,9 +290,57 @@ impl<'a> ServiceRef<'a> {
             return Err(CreateRequestError::ConnectionBusy);
         }
 
-        *current_request = Some(Request { endpoint_id });
+        *current_request = Some(Request {
+            endpoint_id,
+            accepted: false,
+        });
+
+        let target_service_id = conn.target_service as usize;
+        drop(conn);
+
+        let target_service = &mut services[target_service_id];
+        target_service.accept_block = target_service
+            .accept_block
+            .take()
+            .and_then(|b| b.unblock_one());
 
         Ok(())
+    }
+
+    pub fn accept_next_connection_request(&self) -> Option<Id> {
+        let mut services = self.table.services.lock();
+        let service = &mut services[self.id as usize];
+
+        for (id, connection) in service.connections.iter_mut().enumerate() {
+            let mut connection = connection.lock();
+
+            if let Some(req) = connection.current_request.as_mut() {
+                if !req.accepted {
+                    req.accepted = true;
+                    return Some(id as Id);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn block_until_next_request(&self) {
+        {
+            let mut services = self.table.services.lock();
+            let service = &mut services[self.id as usize];
+
+            match &mut service.accept_block {
+                None => {
+                    service.accept_block = Some(SCHEDULER.block_current());
+                }
+                Some(block) => {
+                    block.block_current();
+                }
+            }
+        }
+
+        SCHEDULER.yield_current();
     }
 }
 

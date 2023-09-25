@@ -106,7 +106,7 @@ mod test_service {
     use alloc::ffi::CString;
     use alloc::vec::Vec;
 
-    use crate::arch::x86_64::halt_loop;
+    use crate::arch::x86_64::{halt, halt_loop};
     use crate::arch::x86_64::syscalls::SyscallArgs;
     use crate::interface::syscalls::{handle_kernel_syscall, SyscallResult};
     use crate::service::{
@@ -208,6 +208,10 @@ mod test_service {
 
         debug_println!("Connection Handle {}", connection);
 
+        halt();
+        halt();
+        halt();
+
         let endpoint_name = CString::new("echo").unwrap();
 
         debug_println!("Requesting to {endpoint_name:?}");
@@ -236,6 +240,8 @@ mod test_service {
                 arg3: 0,
             })
             .unwrap();
+
+            halt();
         }
 
         debug_println!("Finishing request");
@@ -255,6 +261,24 @@ mod test_service {
     }
 
     fn test_dep_service_start() -> ! {
-        loop {}
+        loop {
+            debug_println!("Accepting new request");
+
+            let connection_data = syscall(SyscallArgs {
+                syscall: 5,
+                arg0: 0,
+                arg1: 0,
+                arg2: 0,
+                arg3: 0,
+            })
+            .unwrap();
+
+            let connection = connection_data as u32;
+
+            debug_println!("Request accepted with connection {connection}");
+
+
+            halt();
+        }
     }
 }

@@ -130,8 +130,10 @@ pub struct Service {
     pub spec_id: Id,
     pub connections: Vec<Arc<SpinMutex<Connection>>>,
     pub memory_map: MemoryMapper,
+    pub accept_block: Option<ThreadBlocker>,
 }
 
 pub struct Request {
     pub endpoint_id: Id,
+    pub accepted: bool
 }

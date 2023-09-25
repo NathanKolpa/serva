@@ -8,6 +8,7 @@ Must have:
 - Reimplement the frame allocator with the buddy allocator algorithm.
 - Implement `Drop` for MemoryMapper, which deallocates all owned tables.
 - Kernel syscalls should start from a big number, so not to cause any ABI conflicts.
+- Implement ThreadRef, and pass this to each syscall. Remove all block currents and use this value instead.
 
 Should have:
 

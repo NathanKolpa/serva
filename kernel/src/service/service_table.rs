@@ -225,6 +225,7 @@ impl ServiceTable {
             memory_map,
             spec_id,
             connections: Vec::new(),
+            accept_block: None,
         });
 
         spec.service = Some(id);
