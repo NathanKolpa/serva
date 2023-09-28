@@ -172,7 +172,7 @@ impl<'a> ServiceRef<'a> {
                     assert_ne!(*size, 0);
                     Ok(Some(*size as usize))
                 }
-                EndpointParameter::StreamHandle(_) => todo!(),
+                EndpointParameter::StreamHandle => todo!(),
                 EndpointParameter::UnsizedBuffer => Ok(None),
             }
         };

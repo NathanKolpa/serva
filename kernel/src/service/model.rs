@@ -40,7 +40,7 @@ pub enum SizedBufferType {
 
 pub enum EndpointParameter {
     SizedBuffer(u32, SizedBufferType),
-    StreamHandle(u32),
+    StreamHandle,
     // todo: add also a dynamic buffer where the first n bytes are the size.Typed with either ascii, utf8 or binary
     UnsizedBuffer,
 }
