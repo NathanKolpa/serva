@@ -275,18 +275,18 @@ mod test_service {
 
             debug_println!("Request accepted with connection {connection}");
 
-            let buffer = [0; 50];
+            let mut buffer = [0; 50];
 
             loop {
                 let bytes_read = syscall(SyscallArgs {
                     syscall: 4,
-                    arg0: buffer.as_ptr() as u64,
-                    arg1: buffer.len() as u64,
-                    arg2: 0,
+                    arg0: connection as u64,
+                    arg1: buffer.as_mut_ptr() as u64,
+                    arg2: buffer.len() as u64,
                     arg3: 0,
                 }).unwrap();
 
-                debug_println!("Read {bytes_read} bytes");
+                debug_println!("Read {bytes_read} bytes: {:?}", &buffer[0..bytes_read as usize]);
 
                 if bytes_read == 0 {
                     break;

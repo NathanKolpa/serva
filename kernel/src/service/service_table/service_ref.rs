@@ -33,6 +33,12 @@ pub enum WriteError {
     RequestClosed,
 }
 
+#[derive(Debug)]
+pub enum ReadError {
+    InvalidConnection,
+    RequestClosed,
+}
+
 pub struct ServiceRef<'a> {
     table: &'a ServiceTable,
     id: Id,
@@ -55,7 +61,7 @@ impl<'a> ServiceRef<'a> {
         services[self.id as usize].memory_map.set_active()
     }
 
-    pub fn deref_incoming_pointer<'b>(&self, address: VirtualAddress) -> Option<&'b [u8]> {
+    pub fn deref_incoming_pointer<'b>(&self, address: VirtualAddress) -> Option<&'b mut [u8]> {
         let specs = self.table.specs.lock();
         let services = self.table.services.lock();
         let service = &services[self.id as usize];
@@ -83,7 +89,7 @@ impl<'a> ServiceRef<'a> {
             }
         }
 
-        unsafe { Some(core::slice::from_raw_parts(address.as_ptr(), len)) }
+        unsafe { Some(core::slice::from_raw_parts_mut(address.as_mut_ptr(), len)) }
     }
 
     pub fn connect_to(&self, target_spec: Id) -> Result<Id, ConnectError> {
@@ -133,6 +139,42 @@ impl<'a> ServiceRef<'a> {
                 id: conn.lock().target_service,
                 table: self.table,
             });
+    }
+
+    pub fn read(
+        &self,
+        connection: Id,
+        buffer: &mut [u8],
+        start: usize,
+    ) -> Result<usize, ReadError> {
+        let total_len = buffer.len();
+        let buffer = &mut buffer[start..total_len];
+
+        let services = self.table.services.lock();
+        let service = &services[self.id as usize];
+
+        if connection as usize >= service.connections.len() {
+            return Err(ReadError::InvalidConnection);
+        }
+
+        let mut conn = service.connections[connection as usize].lock();
+        let pipe = self.get_read_pipe(conn.deref_mut());
+
+        if pipe.reading_closed {
+            return Err(ReadError::RequestClosed);
+        }
+
+        let read = min(buffer.len(), pipe.buffer.len());
+
+        if read == 0 {
+            pipe.reading_closed = true;
+        }
+
+        for i in 0..read {
+            buffer[i] = pipe.buffer.pop_front().unwrap();
+        }
+
+        Ok(read)
     }
 
     pub fn write(&self, connection: Id, buffer: &[u8], start: usize) -> Result<usize, WriteError> {
@@ -236,11 +278,41 @@ impl<'a> ServiceRef<'a> {
         SCHEDULER.yield_current();
     }
 
+
+    pub fn block_until_read_available(&self, connection: Id) {
+        {
+            let services = self.table.services.lock();
+            let service = &services[self.id as usize];
+
+            let mut conn = service.connections[connection as usize].lock();
+            let pipe = self.get_read_pipe(conn.deref_mut());
+
+            match &mut pipe.read_block {
+                None => {
+                    pipe.read_block = Some(SCHEDULER.block_current());
+                }
+                Some(block) => {
+                    block.block_current();
+                }
+            }
+        }
+
+        SCHEDULER.yield_current();
+    }
+
     fn get_write_pipe<'b>(&self, connection: &'b mut Connection) -> &'b mut Pipe {
         if connection.target_service == self.id {
             &mut connection.response
         } else {
             &mut connection.request
+        }
+    }
+
+    fn get_read_pipe<'b>(&self, connection: &'b mut Connection) -> &'b mut Pipe {
+        if connection.target_service == self.id {
+            &mut connection.request
+        } else {
+            &mut connection.response
         }
     }
 
