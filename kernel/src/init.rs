@@ -104,7 +104,6 @@ mod test_service {
     use alloc::borrow::Cow;
     use alloc::boxed::Box;
     use alloc::ffi::CString;
-    use alloc::vec::Vec;
 
     use crate::arch::x86_64::{halt, halt_loop};
     use crate::arch::x86_64::syscalls::SyscallArgs;
@@ -130,13 +129,14 @@ mod test_service {
             request.push(EndpointParameter::SizedBuffer(50, SizedBufferType::Binary));
             request.push(EndpointParameter::SizedBuffer(50, SizedBufferType::Binary));
 
-            let mut endpoints = Vec::new();
-            endpoints.push(NewEndpoint {
-                name: Cow::Borrowed("echo"),
-                request,
-                response: FixedVec::new(),
-                min_privilege: Privilege::User,
-            });
+            let endpoints = [
+                NewEndpoint {
+                    name: Cow::Borrowed("echo"),
+                    request,
+                    response: FixedVec::new(),
+                    min_privilege: Privilege::User,
+                }
+            ];
 
             SERVICE_TABLE
                 .register_spec(
@@ -151,12 +151,13 @@ mod test_service {
         };
 
         let spec = unsafe {
-            let mut intents = Vec::new();
-            intents.push(NewIntent {
-                spec_name: Cow::Borrowed("Test Dependency"),
-                endpoint_name: Cow::Borrowed("echo"),
-                required: true,
-            });
+            let intents = [
+                NewIntent {
+                    spec_name: Cow::Borrowed("Test Dependency"),
+                    endpoint_name: Cow::Borrowed("echo"),
+                    required: true,
+                }
+            ];
 
             let endpoints = [];
 

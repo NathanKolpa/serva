@@ -1,6 +1,6 @@
-use core::mem::{transmute, MaybeUninit};
+use core::mem::{ MaybeUninit};
 use core::ops::{Deref, DerefMut, Index, IndexMut};
-use core::ptr::read;
+use core::{ptr, slice};
 
 /// A vector with a size known at compile-time.
 /// Because the fixed size, the vector can be stored entirely inline and on the stack.
@@ -46,7 +46,7 @@ impl<const SIZE: usize, T> FixedVec<SIZE, T> {
             0 => None,
             _ => {
                 self.len -= 1;
-                unsafe { Some(read(self.as_ptr().add(self.len))) }
+                unsafe { Some(ptr::read(self.as_ptr().add(self.len))) }
             }
         }
     }
@@ -60,11 +60,11 @@ impl<const SIZE: usize, T> FixedVec<SIZE, T> {
     }
 
     pub fn as_slice(&self) -> &[T] {
-        unsafe { transmute(&self.elements[0..self.len]) }
+        unsafe { slice::from_raw_parts(self.elements.as_ptr() as *const T, self.len) }
     }
 
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        unsafe { transmute(&mut self.elements[0..self.len]) }
+        unsafe { slice::from_raw_parts_mut(self.elements.as_ptr() as *mut T, self.len) }
     }
 
     pub fn clear(&mut self) {
