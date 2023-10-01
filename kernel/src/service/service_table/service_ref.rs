@@ -111,7 +111,7 @@ impl<'a> ServiceRef<'a> {
 
         let mut services = self.table.services.lock();
         let service = &mut services[self.id as usize];
-        let handle = service.connections.len() as u32;
+        let handle = service.connections.len() as Id;
 
         let new_conn = Arc::new(SpinMutex::new(Connection {
             target_service: target_service.id(),
@@ -160,7 +160,8 @@ impl<'a> ServiceRef<'a> {
         let mut conn = service.connections[connection as usize].lock();
         let pipe = self.get_read_pipe(conn.deref_mut());
 
-        if pipe.reading_closed {
+        if pipe.buffer.len() == 0 && pipe.closed {
+            let _ = pipe.read_block.take();
             return Err(ReadError::RequestClosed);
         }
 
@@ -386,7 +387,7 @@ impl<'a> ServiceRef<'a> {
         Ok(())
     }
 
-    pub fn accept_next_connection_request(&self) -> Option<Id> {
+    pub fn accept_next_connection_request(&self) -> Option<(Id, Id)> {
         let mut services = self.table.services.lock();
         let service = &mut services[self.id as usize];
 
@@ -396,7 +397,7 @@ impl<'a> ServiceRef<'a> {
             if let Some(req) = connection.current_request.as_mut() {
                 if !req.accepted {
                     req.accepted = true;
-                    return Some(id as Id);
+                    return Some((id as Id, req.endpoint_id));
                 }
             }
         }

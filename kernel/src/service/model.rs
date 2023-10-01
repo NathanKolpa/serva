@@ -9,7 +9,7 @@ use crate::util::address::VirtualAddress;
 use crate::util::collections::FixedVec;
 use crate::util::sync::SpinMutex;
 
-pub type Id = u32;
+pub type Id = u16;
 pub type CowString = Cow<'static, str>;
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]

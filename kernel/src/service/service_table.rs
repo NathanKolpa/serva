@@ -89,12 +89,12 @@ impl ServiceTable {
         }
 
         let specs = self.specs.lock();
-        let new_spec_id = specs.len() as u32;
+        let new_spec_id = specs.len() as Id;
         drop(specs);
 
         let mut intents = self.intents.lock();
 
-        let intents_start = intents.len() as u32;
+        let intents_start = intents.len() as Id;
         for new_intent in spec_intents {
             let endpoint = self.resolve_new_intent_to_endpoint(privilege, &new_intent);
 
@@ -107,16 +107,16 @@ impl ServiceTable {
                 return Err(NewSpecError::RequirementsNotMet);
             }
         }
-        let intents_end = intents.len() as u32;
+        let intents_end = intents.len() as Id;
 
         let mut endpoints = self.endpoints.lock();
-        let endpoints_start = endpoints.len() as u32;
+        let endpoints_start = endpoints.len() as Id;
         endpoints.extend(
             spec_endpoints
                 .into_iter()
                 .enumerate()
                 .map(|(i, n)| Endpoint {
-                    id: endpoints_start + i as u32,
+                    id: endpoints_start + i as Id,
                     spec_id: new_spec_id,
                     name: n.name,
                     min_privilege: n.min_privilege,
@@ -124,7 +124,7 @@ impl ServiceTable {
                     response: n.response,
                 }),
         );
-        let endpoints_end = endpoints.len() as u32;
+        let endpoints_end = endpoints.len() as Id;
 
         let mut specs = self.specs.lock();
         specs.push(ServiceSpec {
@@ -215,7 +215,7 @@ impl ServiceTable {
             .new_mapper(true)
             .map_err(NewServiceError::FailedToCreateNewMemoryMap)?;
 
-        let id = services.len() as u32;
+        let id = services.len() as Id;
 
         let stack = Self::create_stack(&mut memory_map, spec.privilege)
             .map_err(NewServiceError::FailedToCreateStack)?;

@@ -2,6 +2,7 @@ use crate::arch::x86_64::init::GDT;
 use crate::arch::x86_64::interrupts::context::{InterruptStackFrame, InterruptedContext};
 use crate::arch::x86_64::RFlags;
 use crate::multi_tasking::scheduler::stack::ThreadStack;
+use crate::service::Id;
 use crate::util::address::VirtualAddress;
 
 pub type ThreadId = usize;
@@ -19,7 +20,7 @@ pub struct Thread {
     name: Option<&'static str>,
     context: InterruptedContext,
     state: ThreadState,
-    service_id: Option<u32>,
+    service_id: Option<Id>,
 }
 
 impl Thread {
@@ -27,7 +28,7 @@ impl Thread {
         name: Option<&'static str>,
         stack: ThreadStack,
         entrypoint: VirtualAddress,
-        service_id: Option<u32>,
+        service_id: Option<Id>,
     ) -> Self {
         Self {
             name,
@@ -96,7 +97,7 @@ impl Thread {
         &self.context
     }
 
-    pub fn service_id(&self) -> Option<u32> {
+    pub fn service_id(&self) -> Option<Id> {
         self.service_id
     }
 }

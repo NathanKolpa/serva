@@ -108,8 +108,8 @@ mod test_service {
 
     use crate::arch::x86_64::{halt, halt_loop};
     use crate::arch::x86_64::syscalls::SyscallArgs;
-    use crate::interface::syscalls::{handle_kernel_syscall, SyscallResult};
-    use crate::service::{EndpointParameter, NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SERVICE_TABLE, SizedBufferType};
+    use crate::interface::syscalls::{handle_kernel_syscall, SyscallError, SyscallResult};
+    use crate::service::{EndpointParameter, NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SERVICE_TABLE, SizedBufferType, Id};
     use crate::util::address::VirtualAddress;
     use crate::util::collections::FixedVec;
 
@@ -271,7 +271,7 @@ mod test_service {
             })
             .unwrap();
 
-            let connection = connection_data as u32;
+            let connection = connection_data as Id;
 
             debug_println!("Request accepted with connection {connection}");
 
@@ -280,13 +280,21 @@ mod test_service {
             loop {
                 debug_println!("Reading data");
 
-                let bytes_read = syscall(SyscallArgs {
+                let read_result = syscall(SyscallArgs {
                     syscall: 4,
                     arg0: connection as u64,
                     arg1: buffer.as_mut_ptr() as u64,
                     arg2: buffer.len() as u64,
                     arg3: 0,
-                }).unwrap();
+                });
+
+                let bytes_read = match read_result {
+                    Ok(b) => b,
+                    Err(err) => match err {
+                        SyscallError::RequestClosed => break,
+                        _ => panic!("{err:?}")
+                    }
+                };
 
                 debug_println!("Read {bytes_read} bytes: {:?}", &buffer[0..bytes_read as usize]);
 
