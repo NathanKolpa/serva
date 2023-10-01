@@ -21,6 +21,7 @@ dependencies = [
  "bootloader",
  "linked_list_allocator",
  "spin",
+ "syscall",
 ]
 
 [[package]]
@@ -71,5 +72,12 @@ name = "syscall"
 version = "0.1.0"
 
 [[package]]
+name = "testing"
+version = "0.1.0"
+
+[[package]]
 name = "user"
 version = "0.1.0"
+dependencies = [
+ "syscall",
+]

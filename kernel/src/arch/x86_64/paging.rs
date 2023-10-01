@@ -273,7 +273,7 @@ impl<const SIZE: usize> DerefMut for PageTable<SIZE> {
 pub type HugeL1Table = PageTable<262144>;
 pub type HugeL2Table = PageTable<134217728>;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum PageSize {
     Size4Kib,
     Size2Mib,
@@ -374,3 +374,22 @@ impl Page<PhysicalAddressMarker> {
 
 pub type VirtualPage = Page<VirtualAddressMarker>;
 pub type PhysicalPage = Page<PhysicalAddressMarker>;
+
+
+impl Debug for PhysicalPage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("PhysicalPage")
+            .field("Addr", &self.addr)
+            .field("Size", &self.size)
+            .finish()
+    }
+}
+
+impl Debug for VirtualPage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("VirtualPage")
+            .field("Addr", &self.addr)
+            .field("Size", &self.size)
+            .finish()
+    }
+}

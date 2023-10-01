@@ -1,14 +1,18 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+#![no_std]
+#![feature(doc_cfg)]
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+mod error;
+mod result;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+#[doc(cfg(feature = "user"))]
+#[cfg(feature = "user")]
+mod user;
+
+#[doc(cfg(feature = "user"))]
+#[cfg(feature = "user")]
+pub use user::*;
+
+
+pub use error::*;
+pub use result::*;
+

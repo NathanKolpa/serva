@@ -1,3 +1,10 @@
 #![no_std]
 
-pub mod syscalls;
+#[cfg(not(test))]
+extern "C" {
+    fn main() -> ();
+}
+
+extern "C" fn _start() -> ! {
+    syscall::thread_exit()
+}

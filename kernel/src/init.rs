@@ -10,8 +10,9 @@ use crate::arch::x86_64::syscalls::init_syscalls;
 use crate::arch::x86_64::ARCH_NAME;
 use crate::arch::x86_64::{halt_loop, init_x86_64};
 use crate::debug::DEBUG_CHANNEL;
+use crate::interface::abi::setup_abi_page;
 use crate::interface::interrupts::INTERRUPT_HANDLERS;
-use crate::interface::syscalls::handle_user_syscall_raw;
+use crate::interface::syscalls::{handle_kernel_syscall_raw, handle_user_syscall_raw};
 use crate::memory::heap::{map_heap, HEAP_SIZE};
 use crate::memory::{MemoryMapper, FRAME_ALLOCATOR};
 use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
@@ -78,6 +79,11 @@ fn main_kernel_thread() -> ! {
 
         map_heap(&mut mapper).expect("Failed to map the kernel heap");
 
+        unsafe {
+            init_syscalls(handle_user_syscall_raw, GDT.syscall, GDT.sysret);
+            setup_abi_page(&mut mapper, handle_kernel_syscall_raw).expect("Failed to initialize ABI page");
+        }
+
         debug_println!("{:#?}", FRAME_ALLOCATOR.info());
 
         // from this point on the kernel map is shared and cannot be changed.
@@ -86,10 +92,6 @@ fn main_kernel_thread() -> ! {
                 .borrow_to_new_mapper(true)
                 .expect("Failed to inherit root memory map"),
         );
-
-        unsafe {
-            init_syscalls(handle_user_syscall_raw, GDT.syscall, GDT.sysret);
-        }
 
         test_service::setup_test_service();
     });
@@ -189,7 +191,7 @@ mod test_service {
     }
 
     fn syscall(args: SyscallArgs) -> SyscallResult {
-        handle_kernel_syscall(&args)
+        unsafe { syscall::syscall(args.syscall, args.arg0, args.arg1, args.arg2, args.arg3) }
     }
 
     fn test_service_start() -> ! {

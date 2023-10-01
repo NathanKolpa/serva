@@ -1,4 +1,4 @@
-use syscall::{encode_syscall, SyscallError, SyscallResult};
+use syscall::{encode_syscall_result, SyscallError, SyscallResult};
 
 use crate::arch::x86_64::interrupts::atomic_block;
 use crate::arch::x86_64::syscalls::SyscallArgs;
@@ -62,5 +62,10 @@ pub fn handle_user_syscall(args: &SyscallArgs) -> SyscallResult {
 
 pub fn handle_user_syscall_raw(args: SyscallArgs) -> u64 {
     let result = handle_user_syscall(&args);
-    encode_syscall(result)
+    encode_syscall_result(result)
+}
+
+pub fn handle_kernel_syscall_raw(args: SyscallArgs) -> u64 {
+    let result = handle_kernel_syscall(&args);
+    encode_syscall_result(result)
 }
