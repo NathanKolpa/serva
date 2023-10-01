@@ -81,7 +81,8 @@ fn main_kernel_thread() -> ! {
 
         unsafe {
             init_syscalls(handle_user_syscall_raw, GDT.syscall, GDT.sysret);
-            setup_abi_page(&mut mapper, handle_kernel_syscall_raw).expect("Failed to initialize ABI page");
+            setup_abi_page(&mut mapper, handle_kernel_syscall_raw)
+                .expect("Failed to initialize ABI page");
         }
 
         debug_println!("{:#?}", FRAME_ALLOCATOR.info());
@@ -107,14 +108,10 @@ mod test_service {
     use alloc::boxed::Box;
     use alloc::ffi::CString;
 
-    use syscall::{SyscallError, SyscallResult};
-
-    use crate::arch::x86_64::syscalls::SyscallArgs;
     use crate::arch::x86_64::{halt, halt_loop};
-    use crate::interface::syscalls::handle_kernel_syscall;
     use crate::service::{
-        EndpointParameter, Id, NewEndpoint, NewIntent, Privilege, ServiceEntrypoint,
-        SizedBufferType, SERVICE_TABLE,
+        EndpointParameter, NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SizedBufferType,
+        SERVICE_TABLE,
     };
     use crate::util::address::VirtualAddress;
     use crate::util::collections::FixedVec;
@@ -190,25 +187,14 @@ mod test_service {
         SERVICE_TABLE.start_service(spec.id()).unwrap();
     }
 
-    fn syscall(args: SyscallArgs) -> SyscallResult {
-        unsafe { syscall::syscall(args.syscall, args.arg0, args.arg1, args.arg2, args.arg3) }
-    }
-
     fn test_service_start() -> ! {
         debug_println!("Connecting");
 
         let service_name = CString::new("Test Dependency").unwrap();
 
-        let connection = syscall(SyscallArgs {
-            syscall: 1,
-            arg0: service_name.as_ptr() as u64,
-            arg1: 0,
-            arg2: 0,
-            arg3: 0,
-        })
-        .unwrap();
+        let mut connection = syscall::connect(&service_name).unwrap();
 
-        debug_println!("Connection Handle {}", connection);
+        debug_println!("Connection Handle {connection}");
 
         halt();
         halt();
@@ -221,14 +207,7 @@ mod test_service {
         loop {
             debug_println!("Requesting to {endpoint_name:?}");
 
-            syscall(SyscallArgs {
-                syscall: 2,
-                arg0: connection,
-                arg1: endpoint_name.as_ptr() as u64,
-                arg2: 0,
-                arg3: 0,
-            })
-            .unwrap();
+            syscall::request(&mut connection, &endpoint_name).unwrap();
 
             debug_println!("Request open");
 
@@ -236,73 +215,30 @@ mod test_service {
 
             for _ in 0..10 {
                 debug_println!("Writing {} bytes", buffer.len());
-
-                syscall(SyscallArgs {
-                    syscall: 3,
-                    arg0: connection,
-                    arg1: buffer.as_ptr() as u64,
-                    arg2: buffer.len() as u64,
-                    arg3: 0,
-                })
-                .unwrap();
+                syscall::write(&mut connection, &buffer, false).unwrap();
+                // halt()
             }
 
             debug_println!("Finishing request");
 
-            syscall(SyscallArgs {
-                syscall: 3,
-                arg0: connection,
-                arg1: buffer.as_ptr() as u64,
-                arg2: 0,
-                arg3: 1, // end flag
-            })
-            .unwrap();
+            syscall::write(&mut connection, &[], true).unwrap();
 
             debug_println!("Request finished");
 
             nonce = nonce.wrapping_add(1);
         }
-
-        halt_loop()
     }
 
     fn test_dep_service_start() -> ! {
-        loop {
-            debug_println!("Accepting new request");
-
-            let connection_data = syscall(SyscallArgs {
-                syscall: 5,
-                arg0: 0,
-                arg1: 0,
-                arg2: 0,
-                arg3: 0,
-            })
-            .unwrap();
-
-            let connection = connection_data as Id;
-
-            debug_println!("Request accepted with connection {connection}");
+        while let Some((mut connection, endpoint)) = unsafe { syscall::accept() } {
+            debug_println!("Request accepted with connection {connection} for endpoint {endpoint}");
 
             let mut buffer = [0u8; 50];
 
             loop {
                 debug_println!("Reading data");
 
-                let read_result = syscall(SyscallArgs {
-                    syscall: 4,
-                    arg0: connection as u64,
-                    arg1: buffer.as_mut_ptr() as u64,
-                    arg2: buffer.len() as u64,
-                    arg3: 0,
-                });
-
-                let bytes_read = match read_result {
-                    Ok(b) => b,
-                    Err(err) => match err {
-                        SyscallError::RequestClosed => break,
-                        _ => panic!("{err:?}"),
-                    },
-                };
+                let bytes_read = syscall::read(&mut connection, &mut buffer).unwrap();
 
                 debug_println!(
                     "Read {bytes_read} bytes: {:?}",
@@ -318,5 +254,7 @@ mod test_service {
 
             halt();
         }
+
+        halt_loop()
     }
 }

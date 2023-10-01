@@ -17,8 +17,6 @@ pub fn accept_syscall(_args: &SyscallArgs, current_service: ServiceRef) -> Sysca
             return Ok(result | NEW_CONNECTION_FLAG);
         }
 
-        debug_println!("Blocking until next request");
         current_service.block_until_next_request();
-        debug_println!("Next request free");
     })
 }

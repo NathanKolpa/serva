@@ -4,13 +4,6 @@ use crate::interface::syscalls::{SyscallError, SyscallResult};
 use crate::service::{Id, ReadError, ServiceRef};
 use crate::util::address::VirtualAddress;
 
-fn map_read_error_to_syscall_error(err: ReadError) -> SyscallError {
-    match err {
-        ReadError::InvalidConnection => SyscallError::ResourceNotFound,
-        ReadError::RequestClosed => SyscallError::RequestClosed,
-    }
-}
-
 pub fn read_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallResult {
     let connection_id = args.arg0 as Id;
     let buffer_size = args.arg2 as usize;
@@ -28,7 +21,10 @@ pub fn read_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallR
         let result = current_service.read(connection_id, target_buffer, start);
 
         match result {
-            Err(err) => return Err(map_read_error_to_syscall_error(err)),
+            Err(err) => return match err {
+                ReadError::InvalidConnection => Err(SyscallError::ResourceNotFound),
+                ReadError::RequestClosed => Ok(0)
+            },
             Ok(read) => {
                 start += read;
 
