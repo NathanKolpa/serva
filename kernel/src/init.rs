@@ -105,10 +105,15 @@ mod test_service {
     use alloc::boxed::Box;
     use alloc::ffi::CString;
 
-    use crate::arch::x86_64::{halt, halt_loop};
+    use syscall::{SyscallError, SyscallResult};
+
     use crate::arch::x86_64::syscalls::SyscallArgs;
-    use crate::interface::syscalls::{handle_kernel_syscall, SyscallError, SyscallResult};
-    use crate::service::{EndpointParameter, NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SERVICE_TABLE, SizedBufferType, Id};
+    use crate::arch::x86_64::{halt, halt_loop};
+    use crate::interface::syscalls::handle_kernel_syscall;
+    use crate::service::{
+        EndpointParameter, Id, NewEndpoint, NewIntent, Privilege, ServiceEntrypoint,
+        SizedBufferType, SERVICE_TABLE,
+    };
     use crate::util::address::VirtualAddress;
     use crate::util::collections::FixedVec;
 
@@ -129,14 +134,12 @@ mod test_service {
             request.push(EndpointParameter::SizedBuffer(50, SizedBufferType::Binary));
             request.push(EndpointParameter::SizedBuffer(50, SizedBufferType::Binary));
 
-            let endpoints = [
-                NewEndpoint {
-                    name: Cow::Borrowed("echo"),
-                    request,
-                    response: FixedVec::new(),
-                    min_privilege: Privilege::User,
-                }
-            ];
+            let endpoints = [NewEndpoint {
+                name: Cow::Borrowed("echo"),
+                request,
+                response: FixedVec::new(),
+                min_privilege: Privilege::User,
+            }];
 
             SERVICE_TABLE
                 .register_spec(
@@ -151,13 +154,11 @@ mod test_service {
         };
 
         let spec = unsafe {
-            let intents = [
-                NewIntent {
-                    spec_name: Cow::Borrowed("Test Dependency"),
-                    endpoint_name: Cow::Borrowed("echo"),
-                    required: true,
-                }
-            ];
+            let intents = [NewIntent {
+                spec_name: Cow::Borrowed("Test Dependency"),
+                endpoint_name: Cow::Borrowed("echo"),
+                required: true,
+            }];
 
             let endpoints = [];
 
@@ -213,48 +214,52 @@ mod test_service {
 
         let endpoint_name = CString::new("echo").unwrap();
 
-        debug_println!("Requesting to {endpoint_name:?}");
+        let mut nonce = 0u8;
 
-        syscall(SyscallArgs {
-            syscall: 2,
-            arg0: connection,
-            arg1: endpoint_name.as_ptr() as u64,
-            arg2: 0,
-            arg3: 0,
-        })
-        .unwrap();
+        loop {
+            debug_println!("Requesting to {endpoint_name:?}");
 
-        debug_println!("Request open");
+            syscall(SyscallArgs {
+                syscall: 2,
+                arg0: connection,
+                arg1: endpoint_name.as_ptr() as u64,
+                arg2: 0,
+                arg3: 0,
+            })
+            .unwrap();
 
-        let buffer = [1u8; 10];
+            debug_println!("Request open");
 
-        for _ in 0..10 {
-            debug_println!("Writing {} bytes", buffer.len());
+            let buffer = [nonce; 10];
+
+            for _ in 0..10 {
+                debug_println!("Writing {} bytes", buffer.len());
+
+                syscall(SyscallArgs {
+                    syscall: 3,
+                    arg0: connection,
+                    arg1: buffer.as_ptr() as u64,
+                    arg2: buffer.len() as u64,
+                    arg3: 0,
+                })
+                .unwrap();
+            }
+
+            debug_println!("Finishing request");
 
             syscall(SyscallArgs {
                 syscall: 3,
                 arg0: connection,
                 arg1: buffer.as_ptr() as u64,
-                arg2: buffer.len() as u64,
-                arg3: 0,
+                arg2: 0,
+                arg3: 1, // end flag
             })
             .unwrap();
 
-            halt();
+            debug_println!("Request finished");
+
+            nonce = nonce.wrapping_add(1);
         }
-
-        debug_println!("Finishing request");
-
-        syscall(SyscallArgs {
-            syscall: 3,
-            arg0: connection,
-            arg1: buffer.as_ptr() as u64,
-            arg2: 0,
-            arg3: 1, // end flag
-        })
-        .unwrap();
-
-        debug_println!("Request finished");
 
         halt_loop()
     }
@@ -293,11 +298,14 @@ mod test_service {
                     Ok(b) => b,
                     Err(err) => match err {
                         SyscallError::RequestClosed => break,
-                        _ => panic!("{err:?}")
-                    }
+                        _ => panic!("{err:?}"),
+                    },
                 };
 
-                debug_println!("Read {bytes_read} bytes: {:?}", &buffer[0..bytes_read as usize]);
+                debug_println!(
+                    "Read {bytes_read} bytes: {:?}",
+                    &buffer[0..bytes_read as usize]
+                );
 
                 if bytes_read == 0 {
                     break;

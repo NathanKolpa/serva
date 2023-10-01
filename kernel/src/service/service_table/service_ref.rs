@@ -4,7 +4,7 @@ use core::fmt::{Debug, Formatter};
 use core::ops::{Deref, DerefMut};
 
 use crate::arch::x86_64::paging::{PageTableEntryFlags, VirtualPage};
-use crate::multi_tasking::scheduler::SCHEDULER;
+use crate::multi_tasking::scheduler::{ThreadBlocker, SCHEDULER};
 use crate::service::model::{Connection, Endpoint, Id, Pipe, Request};
 use crate::service::service_table::spec_ref::ServiceSpecRef;
 use crate::service::{EndpointParameter, NewServiceError, Privilege, ServiceTable};
@@ -118,6 +118,7 @@ impl<'a> ServiceRef<'a> {
             current_request: None,
             request: Pipe::default(),
             response: Pipe::default(),
+            request_close_block: None,
         }));
 
         service.connections.push(new_conn.clone());
@@ -161,7 +162,6 @@ impl<'a> ServiceRef<'a> {
         let pipe = self.get_read_pipe(conn.deref_mut());
 
         if pipe.buffer.len() == 0 && pipe.closed {
-            let _ = pipe.read_block.take();
             return Err(ReadError::RequestClosed);
         }
 
@@ -176,6 +176,13 @@ impl<'a> ServiceRef<'a> {
         }
 
         pipe.write_block = pipe.write_block.take().and_then(|b| b.unblock_one());
+
+        // this is the last read call, we should clean up after ourselves.
+        if pipe.buffer.len() == 0 && pipe.closed {
+            pipe.read_block = None;
+            conn.request_close_block = None;
+            conn.current_request = None;
+        }
 
         Ok(read)
     }
@@ -266,46 +273,61 @@ impl<'a> ServiceRef<'a> {
         Ok(())
     }
 
-    pub fn block_until_write_available(&self, connection: Id) {
+    fn add_current_to_block(blocker: &mut Option<ThreadBlocker>) {
+        match blocker {
+            None => {
+                *blocker = Some(SCHEDULER.block_current());
+            }
+            Some(block) => {
+                block.block_current();
+            }
+        }
+    }
+
+    fn block_until_pipe_event(
+        &self,
+        connection: Id,
+        pipe_selector: impl FnOnce(&mut Connection) -> &mut Pipe,
+        block_selector: impl FnOnce(&mut Pipe) -> &mut Option<ThreadBlocker>,
+    ) {
         {
             let services = self.table.services.lock();
             let service = &services[self.id as usize];
 
             let mut conn = service.connections[connection as usize].lock();
-            let pipe = self.get_write_pipe(conn.deref_mut());
+            let pipe = pipe_selector(conn.deref_mut());
 
-            match &mut pipe.write_block {
-                None => {
-                    pipe.write_block = Some(SCHEDULER.block_current());
-                }
-                Some(block) => {
-                    block.block_current();
-                }
-            }
+            let blocker = block_selector(pipe);
+            Self::add_current_to_block(blocker);
+        }
+
+        SCHEDULER.yield_current();
+    }
+
+    pub fn block_until_write_available(&self, connection: Id) {
+        self.block_until_pipe_event(
+            connection,
+            |c| self.get_write_pipe(c),
+            |p| &mut p.write_block,
+        )
+    }
+
+    pub fn block_until_request_close(&self, connection: Id) {
+        {
+            let services = self.table.services.lock();
+            let service = &services[self.id as usize];
+
+            let mut conn = service.connections[connection as usize].lock();
+
+            let blocker = &mut conn.request_close_block;
+            Self::add_current_to_block(blocker);
         }
 
         SCHEDULER.yield_current();
     }
 
     pub fn block_until_read_available(&self, connection: Id) {
-        {
-            let services = self.table.services.lock();
-            let service = &services[self.id as usize];
-
-            let mut conn = service.connections[connection as usize].lock();
-            let pipe = self.get_read_pipe(conn.deref_mut());
-
-            match &mut pipe.read_block {
-                None => {
-                    pipe.read_block = Some(SCHEDULER.block_current());
-                }
-                Some(block) => {
-                    block.block_current();
-                }
-            }
-        }
-
-        SCHEDULER.yield_current();
+        self.block_until_pipe_event(connection, |c| self.get_read_pipe(c), |p| &mut p.read_block)
     }
 
     fn get_write_pipe<'b>(&self, connection: &'b mut Connection) -> &'b mut Pipe {
@@ -376,6 +398,9 @@ impl<'a> ServiceRef<'a> {
         });
 
         let target_service_id = conn.target_service as usize;
+
+        Self::reset_pipe(&mut conn.request);
+        Self::reset_pipe(&mut conn.response);
         drop(conn);
 
         let target_service = &mut services[target_service_id];
@@ -385,6 +410,17 @@ impl<'a> ServiceRef<'a> {
             .and_then(|b| b.unblock_one());
 
         Ok(())
+    }
+
+    fn reset_pipe(pipe: &mut Pipe) {
+        pipe.closed = false;
+        pipe.current_arg_written = 0;
+        pipe.buffer.clear();
+        pipe.read_block = None;
+        pipe.write_block = None;
+        pipe.write_arg_index = 0;
+        pipe.read_arg_index = 0;
+        pipe.reading_closed = false;
     }
 
     pub fn accept_next_connection_request(&self) -> Option<(Id, Id)> {
@@ -409,15 +445,7 @@ impl<'a> ServiceRef<'a> {
         {
             let mut services = self.table.services.lock();
             let service = &mut services[self.id as usize];
-
-            match &mut service.accept_block {
-                None => {
-                    service.accept_block = Some(SCHEDULER.block_current());
-                }
-                Some(block) => {
-                    block.block_current();
-                }
-            }
+            Self::add_current_to_block(&mut service.accept_block);
         }
 
         SCHEDULER.yield_current();

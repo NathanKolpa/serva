@@ -22,8 +22,7 @@ impl ThreadBlocker {
         if let Some(next) = tasks[self.thread_id].unblock() {
             self.thread_id = next;
             Some(self)
-        }
-        else {
+        } else {
             None
         }
     }

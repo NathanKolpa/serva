@@ -23,26 +23,31 @@ pub fn request_syscall(args: &SyscallArgs, current_service: ServiceRef) -> Sysca
     atomic_block(|| {
         let target_service = current_service
             .get_service_from_connection(connection_id)
-            .ok_or(SyscallError::ConnectionClosed)?;
+            .ok_or(SyscallError::ResourceNotFound)?;
 
         let target_service_spec = target_service.spec();
         let target_endpoint = target_service_spec
             .get_endpoint_by_name(target_endpoint_name)
             .ok_or(SyscallError::ResourceNotFound)?;
 
-        let result = current_service.create_request_to(connection_id, target_endpoint.id());
+        loop {
+            let result = current_service.create_request_to(connection_id, target_endpoint.id());
 
-        match result {
-            Ok(()) => Ok(0),
-            Err(err) => match err {
-                CreateRequestError::NotPermitted => {
-                    return Err(SyscallError::OperationNotPermitted)
-                }
-                CreateRequestError::ConnectionBusy => return Err(SyscallError::ConnectionBusy),
-                CreateRequestError::InvalidEndpointId => {
-                    panic!("Expected the endpoint to be valid before creating the request")
-                }
-            },
+            match result {
+                Ok(()) => return Ok(0),
+                Err(err) => match err {
+                    CreateRequestError::NotPermitted => {
+                        return Err(SyscallError::OperationNotPermitted)
+                    }
+                    CreateRequestError::ConnectionBusy => {},
+                    CreateRequestError::InvalidEndpointId => {
+                        panic!("Expected the endpoint to be valid before creating the request")
+                    }
+                },
+            }
+
+            current_service.block_until_request_close(connection_id);
         }
+
     })
 }

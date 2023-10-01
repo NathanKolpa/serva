@@ -35,7 +35,7 @@ pub enum SizedBufferType {
     SignedInteger,
     UnsignedInteger,
     Float,
-    Bool
+    Bool,
 }
 
 pub enum EndpointParameter {
@@ -108,6 +108,7 @@ impl Default for Pipe {
 pub struct Connection {
     pub target_service: Id,
     pub current_request: Option<Request>,
+    pub request_close_block: Option<ThreadBlocker>,
     pub request: Pipe,
     pub response: Pipe,
 }
@@ -122,14 +123,13 @@ pub struct Service {
 
 pub struct Request {
     pub endpoint_id: Id,
-    pub accepted: bool
+    pub accepted: bool,
 }
-
 
 #[cfg(test)]
 mod tests {
-    use core::mem::size_of;
     use super::*;
+    use core::mem::size_of;
 
     #[test_case]
     fn test_parameter_size_not_larger_than_a_word() {

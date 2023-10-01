@@ -17,9 +17,9 @@ pub fn read_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallR
 
     let Some(read_buffer) =
         atomic_block(|| current_service.deref_incoming_pointer(VirtualAddress::from(args.arg1)))
-        else {
-            return Err(SyscallError::InvalidPointerMappings);
-        };
+    else {
+        return Err(SyscallError::InvalidPointerMappings);
+    };
 
     let target_buffer = &mut read_buffer[0..buffer_size];
     let mut start = 0;
@@ -35,6 +35,7 @@ pub fn read_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallR
                 if start > 0 {
                     return Ok(start as u64);
                 }
+
 
                 // because the buffer could not be written in its entirety, it must be full.
                 // Therefore wait until the other side reads from the buffer.

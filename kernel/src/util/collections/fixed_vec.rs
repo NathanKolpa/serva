@@ -1,4 +1,4 @@
-use core::mem::{ MaybeUninit};
+use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::{ptr, slice};
 

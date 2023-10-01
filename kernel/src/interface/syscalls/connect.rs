@@ -1,8 +1,8 @@
 use core::ffi::CStr;
+use syscall::{SyscallError, SyscallResult};
 
 use crate::arch::x86_64::interrupts::atomic_block;
 use crate::arch::x86_64::syscalls::SyscallArgs;
-use crate::interface::syscalls::{SyscallError, SyscallResult};
 use crate::memory::NewMappingError;
 use crate::service::{ConnectError, NewServiceError, ServiceRef, SERVICE_TABLE};
 use crate::util::address::VirtualAddress;
