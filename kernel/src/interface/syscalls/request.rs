@@ -46,6 +46,7 @@ pub fn request_syscall(args: &SyscallArgs, current_service: ServiceRef) -> Sysca
                 },
             }
 
+            debug_println!("Blocking until request close");
             current_service.block_until_request_close(connection_id);
         }
 

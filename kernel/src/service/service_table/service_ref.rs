@@ -161,8 +161,12 @@ impl<'a> ServiceRef<'a> {
         let mut conn = service.connections[connection as usize].lock();
         let pipe = self.get_read_pipe(conn.deref_mut());
 
-        if pipe.buffer.len() == 0 && pipe.closed {
-            return Err(ReadError::RequestClosed);
+        if pipe.buffer.is_empty() {
+            return if pipe.closed {
+                Err(ReadError::RequestClosed)
+            } else {
+                Ok(0)
+            }
         }
 
         let read = min(buffer.len(), pipe.buffer.len());
@@ -178,10 +182,12 @@ impl<'a> ServiceRef<'a> {
         pipe.write_block = pipe.write_block.take().and_then(|b| b.unblock_one());
 
         // this is the last read call, we should clean up after ourselves.
-        if pipe.buffer.len() == 0 && pipe.closed {
+        debug_println!("Read n {} closed {}", read, pipe.closed);
+        if pipe.buffer.is_empty() && pipe.closed {
             pipe.read_block = None;
             conn.request_close_block = None;
             conn.current_request = None;
+            debug_println!("Unblocked request close");
         }
 
         Ok(read)
@@ -269,6 +275,9 @@ impl<'a> ServiceRef<'a> {
         }
 
         pipe.closed = true;
+        pipe.read_block = None;
+        conn.request_close_block = None;
+        conn.current_request = None;
 
         Ok(())
     }
@@ -402,6 +411,8 @@ impl<'a> ServiceRef<'a> {
         Self::reset_pipe(&mut conn.request);
         Self::reset_pipe(&mut conn.response);
         drop(conn);
+
+        debug_println!("Ubnlcoking");
 
         let target_service = &mut services[target_service_id];
         target_service.accept_block = target_service

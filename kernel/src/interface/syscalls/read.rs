@@ -32,7 +32,6 @@ pub fn read_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallR
                     return Ok(start as u64);
                 }
 
-
                 // because the buffer could not be written in its entirety, it must be full.
                 // Therefore wait until the other side reads from the buffer.
                 current_service.block_until_read_available(connection_id)

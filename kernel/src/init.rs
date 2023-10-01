@@ -216,7 +216,7 @@ mod test_service {
             for _ in 0..10 {
                 debug_println!("Writing {} bytes", buffer.len());
                 syscall::write(&mut connection, &buffer, false).unwrap();
-                // halt()
+                halt()
             }
 
             debug_println!("Finishing request");
