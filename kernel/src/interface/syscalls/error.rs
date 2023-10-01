@@ -1,6 +1,5 @@
 use core::fmt::Debug;
 
-#[repr(u64)]
 #[derive(Copy, Clone, Debug)]
 pub enum SyscallError {
     /// The syscall number was not recognised as a valid syscall.

@@ -17,6 +17,5 @@ pub fn accept_syscall(_args: &SyscallArgs, current_service: ServiceRef) -> Sysca
 
             current_service.block_until_next_request();
         }
-
     })
 }

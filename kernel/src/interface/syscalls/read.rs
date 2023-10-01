@@ -32,11 +32,9 @@ pub fn read_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallR
             Ok(read) => {
                 start += read;
 
-                if start >= target_buffer.len() {
+                if start > 0 {
                     return Ok(start as u64);
                 }
-
-                debug_println!("Wating");
 
                 // because the buffer could not be written in its entirety, it must be full.
                 // Therefore wait until the other side reads from the buffer.

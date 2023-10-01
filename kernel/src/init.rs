@@ -275,9 +275,11 @@ mod test_service {
 
             debug_println!("Request accepted with connection {connection}");
 
-            let mut buffer = [0; 50];
+            let mut buffer = [0u8; 50];
 
             loop {
+                debug_println!("Reading data");
+
                 let bytes_read = syscall(SyscallArgs {
                     syscall: 4,
                     arg0: connection as u64,
@@ -293,7 +295,7 @@ mod test_service {
                 }
             }
 
-            debug_println!("Request finished");
+            debug_println!("Request server finished");
 
             halt();
         }

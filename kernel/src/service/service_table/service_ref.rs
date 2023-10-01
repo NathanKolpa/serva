@@ -166,13 +166,15 @@ impl<'a> ServiceRef<'a> {
 
         let read = min(buffer.len(), pipe.buffer.len());
 
-        if read == 0 {
-            pipe.reading_closed = true;
-        }
-
         for i in 0..read {
             buffer[i] = pipe.buffer.pop_front().unwrap();
         }
+
+        if !pipe.buffer.is_empty() {
+            pipe.read_block = pipe.read_block.take().and_then(|b| b.unblock_one());
+        }
+
+        pipe.write_block = pipe.write_block.take().and_then(|b| b.unblock_one());
 
         Ok(read)
     }
@@ -234,6 +236,12 @@ impl<'a> ServiceRef<'a> {
             pipe.current_arg_written += 1;
         }
 
+        if pipe.buffer.len() < pipe.buffer.capacity() {
+            pipe.write_block = pipe.write_block.take().and_then(|b| b.unblock_one());
+        }
+
+        pipe.read_block = pipe.read_block.take().and_then(|b| b.unblock_one());
+
         Ok(written)
     }
 
@@ -277,7 +285,6 @@ impl<'a> ServiceRef<'a> {
 
         SCHEDULER.yield_current();
     }
-
 
     pub fn block_until_read_available(&self, connection: Id) {
         {
