@@ -182,12 +182,10 @@ impl<'a> ServiceRef<'a> {
         pipe.write_block = pipe.write_block.take().and_then(|b| b.unblock_one());
 
         // this is the last read call, we should clean up after ourselves.
-        debug_println!("Read n {} closed {}", read, pipe.closed);
         if pipe.buffer.is_empty() && pipe.closed {
             pipe.read_block = None;
             conn.request_close_block = None;
             conn.current_request = None;
-            debug_println!("Unblocked request close");
         }
 
         Ok(read)
@@ -411,8 +409,6 @@ impl<'a> ServiceRef<'a> {
         Self::reset_pipe(&mut conn.request);
         Self::reset_pipe(&mut conn.response);
         drop(conn);
-
-        debug_println!("Ubnlcoking");
 
         let target_service = &mut services[target_service_id];
         target_service.accept_block = target_service
