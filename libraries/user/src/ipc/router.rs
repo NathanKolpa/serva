@@ -2,11 +2,11 @@ use crate::ipc::{Endpoint, Request};
 use core::marker::PhantomData;
 
 pub trait RouterMut {
+    fn forward_to_mut(&mut self, endpoint: &Endpoint) -> Option<&mut dyn FnMut(Request)>;
 }
 
 pub trait Router {
-    fn forward_to(&self, endpoint: Endpoint) -> Option<&dyn Fn(Request)>;
-    fn forward_to_mut(&mut self, endpoint: Endpoint) -> Option<&mut dyn FnMut(Request)>;
+    fn forward_to(&self, endpoint: &Endpoint) -> Option<&dyn Fn(Request)>;
 }
 
 pub struct StackRouter<Handler, Endpoint, Parent> {
@@ -25,11 +25,24 @@ impl StackRouter<PhantomData<()>, PhantomData<()>, PhantomData<()>> {
     }
 }
 
-impl<Handler, Parent> StackRouter<Handler, Endpoint, Parent> {
+impl<Handler, E, Parent> StackRouter<Handler, E, Parent> {
     #[must_use]
-    pub fn route<E: AsRef<str>, NewHandler>(
+    pub fn route<N: AsRef<str>, NewHandler>(
         self,
-        name: E,
+        name: N,
+        handler: NewHandler,
+    ) -> StackRouter<NewHandler, Endpoint, Self>
+    where
+        NewHandler: Fn(Request),
+    {
+        self.try_route(name, handler)
+            .expect("endpoint name should exists in the current service's spec")
+    }
+
+    #[must_use]
+    pub fn try_route<N: AsRef<str>, NewHandler>(
+        self,
+        name: N,
         handler: NewHandler,
     ) -> Option<StackRouter<NewHandler, Endpoint, Self>>
     where
@@ -46,11 +59,15 @@ impl<Handler, Parent> StackRouter<Handler, Endpoint, Parent> {
 }
 
 impl Router for StackRouter<PhantomData<()>, PhantomData<()>, PhantomData<()>> {
-    fn forward_to(&self, _endpoint: Endpoint) -> Option<&dyn Fn(Request)> {
+    fn forward_to(&self, _endpoint: &Endpoint) -> Option<&dyn Fn(Request)> {
         None
     }
 
-    fn forward_to_mut(&mut self, _endpoint: Endpoint) -> Option<&mut dyn FnMut(Request)> {
+
+}
+
+impl RouterMut for StackRouter<PhantomData<()>, PhantomData<()>, PhantomData<()>> {
+    fn forward_to_mut(&mut self, _endpoint: &Endpoint) -> Option<&mut dyn FnMut(Request)> {
         None
     }
 }
@@ -60,16 +77,22 @@ where
     Handler: Fn(Request),
     Parent: Router,
 {
-    fn forward_to(&self, endpoint: Endpoint) -> Option<&dyn Fn(Request)> {
-        if self.match_on == endpoint {
+    fn forward_to(&self, endpoint: &Endpoint) -> Option<&dyn Fn(Request)> {
+        if self.match_on == *endpoint {
             return Some(&self.handler);
         }
 
         return self.parent.forward_to(endpoint);
     }
+}
 
-    fn forward_to_mut(&mut self, endpoint: Endpoint) -> Option<&mut dyn FnMut(Request)> {
-        if self.match_on == endpoint {
+impl<Handler, Parent> RouterMut for StackRouter<Handler, Endpoint, Parent>
+    where
+        Handler: FnMut(Request),
+        Parent: RouterMut,
+{
+    fn forward_to_mut(&mut self, endpoint: &Endpoint) -> Option<&mut dyn FnMut(Request)> {
+        if self.match_on == *endpoint {
             return Some(&mut self.handler);
         }
 

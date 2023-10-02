@@ -6,10 +6,9 @@ use crate::ipc::Listener;
 
 pub mod io;
 pub mod ipc;
-pub mod router;
 
 #[cfg(not(test))]
-extern "C" {
+extern {
     fn main(listener: Listener);
 }
 

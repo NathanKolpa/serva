@@ -7,9 +7,7 @@ pub struct Endpoint {
 
 impl Endpoint {
     pub const unsafe fn from_handle(handle: EndpointId) -> Self {
-        Self {
-            handle
-        }
+        Self { handle }
     }
 
     pub fn lookup<E: AsRef<str>>(name: E) -> Option<Endpoint> {

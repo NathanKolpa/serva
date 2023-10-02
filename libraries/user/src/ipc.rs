@@ -1,9 +1,10 @@
 mod connection;
+mod endpoint;
 mod listener;
 mod request;
-mod endpoint;
+pub mod router;
 
 pub use connection::*;
+pub use endpoint::*;
 pub use listener::*;
 pub use request::*;
-pub use endpoint::*;
