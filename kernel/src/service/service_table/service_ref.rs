@@ -166,7 +166,7 @@ impl<'a> ServiceRef<'a> {
                 Err(ReadError::RequestClosed)
             } else {
                 Ok(0)
-            }
+            };
         }
 
         let read = min(buffer.len(), pipe.buffer.len());

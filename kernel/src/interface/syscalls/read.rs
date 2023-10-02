@@ -21,10 +21,12 @@ pub fn read_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallR
         let result = current_service.read(connection_id, target_buffer, start);
 
         match result {
-            Err(err) => return match err {
-                ReadError::InvalidConnection => Err(SyscallError::ResourceNotFound),
-                ReadError::RequestClosed => Ok(0)
-            },
+            Err(err) => {
+                return match err {
+                    ReadError::InvalidConnection => Err(SyscallError::ResourceNotFound),
+                    ReadError::RequestClosed => Ok(0),
+                }
+            }
             Ok(read) => {
                 start += read;
 

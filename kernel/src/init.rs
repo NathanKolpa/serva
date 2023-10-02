@@ -192,7 +192,7 @@ mod test_service {
 
         let service_name = CString::new("Test Dependency").unwrap();
 
-        let mut connection = syscall::connect(&service_name).unwrap();
+        let connection = syscall::connect(&service_name).unwrap();
 
         debug_println!("Connection Handle {connection}");
 
@@ -207,7 +207,7 @@ mod test_service {
         loop {
             debug_println!("Requesting to {endpoint_name:?}");
 
-            syscall::request(&mut connection, &endpoint_name).unwrap();
+            unsafe { syscall::request(connection, &endpoint_name) }.unwrap();
 
             debug_println!("Request open");
 
@@ -215,13 +215,13 @@ mod test_service {
 
             for _ in 0..10 {
                 debug_println!("Writing {} bytes", buffer.len());
-                syscall::write(&mut connection, &buffer, false).unwrap();
+                unsafe { syscall::write(connection, &buffer, false) }.unwrap();
                 halt()
             }
 
             debug_println!("Finishing request");
 
-            syscall::write(&mut connection, &[], true).unwrap();
+            unsafe { syscall::write(connection, &[], true) }.unwrap();
 
             debug_println!("Request finished");
 
@@ -230,7 +230,7 @@ mod test_service {
     }
 
     fn test_dep_service_start() -> ! {
-        while let Some((mut connection, endpoint)) = unsafe { syscall::accept() } {
+        while let Some((connection, endpoint)) = unsafe { syscall::accept() } {
             debug_println!("Request accepted with connection {connection} for endpoint {endpoint}");
 
             let mut buffer = [0u8; 50];
@@ -238,7 +238,7 @@ mod test_service {
             loop {
                 debug_println!("Reading data");
 
-                let bytes_read = syscall::read(&mut connection, &mut buffer).unwrap();
+                let bytes_read = unsafe { syscall::read(connection, &mut buffer) }.unwrap();
 
                 debug_println!(
                     "Read {bytes_read} bytes: {:?}",

@@ -2,7 +2,7 @@
 
 use core::arch::asm;
 use core::ffi::CStr;
-use core::fmt::{Debug, Display, Formatter};
+use core::fmt::Debug;
 use core::mem::size_of;
 
 use crate::{decode_syscall_result, SyscallError, SyscallResult};
@@ -56,16 +56,7 @@ pub fn hello() {
 }
 
 type Handle = u16;
-
-/// A wrapper around a connection id to prevent copying and subsequently breaking ownership rules.
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
-pub struct Connection(Handle);
-
-impl Display for Connection {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+pub type ConnectionHandle = Handle;
 
 pub type EndpointId = Handle;
 
@@ -79,11 +70,11 @@ fn unexpected_error(err: SyscallError) -> ! {
     panic!("Unexpected syscall error: {:?}", err)
 }
 
-pub fn connect(spec_name: &CStr) -> Result<Connection, ConnectError> {
+pub fn connect(spec_name: &CStr) -> Result<ConnectionHandle, ConnectError> {
     let result = unsafe { syscall(1, spec_name.as_ptr() as u64, 0, 0, 0) };
 
     match result {
-        Ok(id) => Ok(Connection(id as Handle)),
+        Ok(id) => Ok(id as ConnectionHandle),
         Err(err) => match err {
             SyscallError::OutOfMemory => Err(ConnectError::OutOfMemory),
             SyscallError::ResourceNotFound => Err(ConnectError::ResourceNotFound),
@@ -98,8 +89,11 @@ pub enum RequestError {
     ResourceNotFound,
 }
 
-pub fn request(connection: &mut Connection, endpoint_name: &CStr) -> Result<(), RequestError> {
-    let result = unsafe { syscall(2, connection.0 as u64, endpoint_name.as_ptr() as u64, 0, 0) };
+pub unsafe fn request(
+    connection: ConnectionHandle,
+    endpoint_name: &CStr,
+) -> Result<(), RequestError> {
+    let result = unsafe { syscall(2, connection as u64, endpoint_name.as_ptr() as u64, 0, 0) };
 
     match result {
         Ok(_) => Ok(()),
@@ -118,14 +112,18 @@ pub enum WriteError {
     ParameterOverflow,
 }
 
-pub fn write(connection: &mut Connection, buffer: &[u8], end: bool) -> Result<(), WriteError> {
+pub unsafe fn write(
+    connection: ConnectionHandle,
+    buffer: &[u8],
+    end: bool,
+) -> Result<usize, WriteError> {
     let mut flags = 0;
     flags |= (end as u64) << 0;
 
     let result = unsafe {
         syscall(
             3,
-            connection.0 as u64,
+            connection as u64,
             buffer.as_ptr() as u64,
             buffer.len() as u64,
             flags,
@@ -133,7 +131,7 @@ pub fn write(connection: &mut Connection, buffer: &[u8], end: bool) -> Result<()
     };
 
     match result {
-        Ok(_) => Ok(()),
+        Ok(b) => Ok(b as usize),
         Err(err) => match err {
             SyscallError::ParameterOverflow => Err(WriteError::ParameterOverflow),
             SyscallError::ResourceNotFound => Err(WriteError::ResourceNotFound),
@@ -148,11 +146,11 @@ pub enum ReadError {
     ResourceNotFound,
 }
 
-pub fn read(connection: &mut Connection, buffer: &mut [u8]) -> Result<usize, ReadError> {
+pub unsafe fn read(connection: ConnectionHandle, buffer: &mut [u8]) -> Result<usize, ReadError> {
     let result = unsafe {
         syscall(
             4,
-            connection.0 as u64,
+            connection as u64,
             buffer.as_ptr() as u64,
             buffer.len() as u64,
             0,
@@ -171,7 +169,7 @@ pub fn read(connection: &mut Connection, buffer: &mut [u8]) -> Result<usize, Rea
 /// # Safety
 ///
 /// This function is unsafe to prevent unowned access to this global "resource"
-pub unsafe fn accept() -> Option<(Connection, EndpointId)> {
+pub unsafe fn accept() -> Option<(ConnectionHandle, EndpointId)> {
     let result = unsafe { syscall(5, 0, 0, 0, 0) };
 
     match result {
@@ -182,11 +180,11 @@ pub unsafe fn accept() -> Option<(Connection, EndpointId)> {
                 return None;
             }
 
-            let connection_id = data as Handle;
+            let connection_id = data as ConnectionHandle;
             let endpoint_id = (data >> (size_of::<Handle>() * 8)) as Handle;
 
-            Some((Connection(connection_id), endpoint_id))
-        },
-        Err(e) => unexpected_error(e)
+            Some((connection_id, endpoint_id))
+        }
+        Err(e) => unexpected_error(e),
     }
 }

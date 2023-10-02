@@ -375,7 +375,6 @@ impl Page<PhysicalAddressMarker> {
 pub type VirtualPage = Page<VirtualAddressMarker>;
 pub type PhysicalPage = Page<PhysicalAddressMarker>;
 
-
 impl Debug for PhysicalPage {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("PhysicalPage")

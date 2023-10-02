@@ -39,7 +39,7 @@ pub fn request_syscall(args: &SyscallArgs, current_service: ServiceRef) -> Sysca
                     CreateRequestError::NotPermitted => {
                         return Err(SyscallError::OperationNotPermitted)
                     }
-                    CreateRequestError::ConnectionBusy => {},
+                    CreateRequestError::ConnectionBusy => {}
                     CreateRequestError::InvalidEndpointId => {
                         panic!("Expected the endpoint to be valid before creating the request")
                     }
@@ -48,6 +48,5 @@ pub fn request_syscall(args: &SyscallArgs, current_service: ServiceRef) -> Sysca
 
             current_service.block_until_request_close(connection_id);
         }
-
     })
 }

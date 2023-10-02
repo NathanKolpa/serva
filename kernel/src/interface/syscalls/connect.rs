@@ -36,7 +36,9 @@ pub fn connect_syscall(args: &SyscallArgs, current_service: ServiceRef) -> Sysca
                         NewMappingError::OutOfFrames => Err(SyscallError::OutOfMemory),
                         _ => panic!("Internal error while mapping new service {e:?}"),
                     },
-                    NewServiceError::SpecNotFound => panic!("Internal error while starting new service"),
+                    NewServiceError::SpecNotFound => {
+                        panic!("Internal error while starting new service")
+                    }
                 },
             },
         }

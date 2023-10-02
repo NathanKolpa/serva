@@ -36,14 +36,14 @@ pub fn write_syscall(args: &SyscallArgs, current_service: ServiceRef) -> Syscall
             Ok(written) => {
                 start += written;
 
-                if start >= source_buffer.len() {
+                if start > 0 {
                     if (flags & WRITE_END_FLAG) != 0 {
                         current_service
                             .close_write(connection_id)
                             .map_err(map_write_error_to_syscall_error)?;
                     }
 
-                    return Ok(0);
+                    return Ok(start as u64);
                 }
 
                 // because the buffer could not be written in its entirety, it must be full.

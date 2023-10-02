@@ -12,7 +12,5 @@ mod user;
 #[cfg(feature = "user")]
 pub use user::*;
 
-
 pub use error::*;
 pub use result::*;
-
