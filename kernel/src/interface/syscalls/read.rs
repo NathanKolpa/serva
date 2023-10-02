@@ -30,7 +30,7 @@ pub fn read_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallR
             Ok(read) => {
                 start += read;
 
-                if start > 0 {
+                if start > 0 || target_buffer.is_empty() {
                     return Ok(start as u64);
                 }
 

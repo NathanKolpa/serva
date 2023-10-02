@@ -36,7 +36,7 @@ pub fn write_syscall(args: &SyscallArgs, current_service: ServiceRef) -> Syscall
             Ok(written) => {
                 start += written;
 
-                if start > 0 {
+                if start > 0 || source_buffer.is_empty() {
                     if (flags & WRITE_END_FLAG) != 0 {
                         current_service
                             .close_write(connection_id)
