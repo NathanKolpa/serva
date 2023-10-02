@@ -202,7 +202,7 @@ mod test_service {
 
         let endpoint_name = CString::new("echo").unwrap();
 
-        let mut nonce = 0u8;
+        let mut nonce = 40u8;
 
         loop {
             debug_println!("Requesting to {endpoint_name:?}");
