@@ -19,4 +19,3 @@ pub mod memory;
 pub mod multi_tasking;
 pub mod service;
 pub mod testing;
-pub mod util;
