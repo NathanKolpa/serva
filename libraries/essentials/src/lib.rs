@@ -3,12 +3,7 @@
 #![feature(doc_cfg)]
 #![no_std]
 
-pub use expected::Expected;
-pub use singleton::Singleton;
-
 pub mod address;
 pub mod collections;
 pub mod display;
-mod expected;
-mod singleton;
 pub mod sync;

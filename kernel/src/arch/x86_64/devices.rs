@@ -1,5 +1,4 @@
-use essentials::sync::SpinMutex;
-use essentials::Singleton;
+use essentials::sync::{Singleton, SpinMutex};
 use x86_64::devices::pic_8259::ChainedPic8259;
 use x86_64::devices::qemu::Qemu;
 use x86_64::devices::uart_16550::Uart16550;

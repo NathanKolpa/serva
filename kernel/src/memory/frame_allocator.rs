@@ -1,8 +1,7 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
-use essentials::sync::SpinRwLock;
-use essentials::Expected;
+use essentials::sync::{Expected, SpinRwLock};
 use x86_64::paging::{PageSize, PhysicalPage};
 
 use crate::memory::MemoryInfo;

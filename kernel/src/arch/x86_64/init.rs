@@ -1,8 +1,7 @@
 use crate::arch::x86_64::devices::{PIC_CHAIN, PIC_CHAIN_TICK_INT_INDEX, SERIAL};
 use core::arch::asm;
 use essentials::address::VirtualAddress;
-use essentials::sync::PanicOnce;
-use essentials::Singleton;
+use essentials::sync::{PanicOnce, Singleton};
 use x86_64::constants::MIN_STACK_SIZE;
 use x86_64::interrupts::context::{InterruptStackFrame, InterruptedContext};
 use x86_64::interrupts::{InterruptDescriptorTable, PageFaultErrorCode};
