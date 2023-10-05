@@ -1,6 +1,6 @@
-use crate::arch::x86_64::paging::*;
 use crate::memory::MemoryMapper;
-use crate::util::address::{PhysicalAddress, VirtualAddress};
+use essentials::address::*;
+use x86_64::paging::*;
 
 pub enum WalkError {
     NotMapped,

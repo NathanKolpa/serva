@@ -1,6 +1,4 @@
-use crate::arch::x86_64::port::{Port, ReadWrite, WriteOnly};
-use crate::util::sync::SpinMutex;
-use crate::util::Singleton;
+use crate::port::*;
 
 #[repr(u8)]
 enum Command {
@@ -63,7 +61,7 @@ impl ChainedPic8259 {
         }
     }
 
-    fn init(&mut self) {
+    pub fn init(&mut self) {
         let mut wait_port = unsafe { Port::write_only(0x80) };
 
         unsafe {
@@ -110,11 +108,3 @@ impl ChainedPic8259 {
         }
     }
 }
-
-fn init_pic_chain() -> SpinMutex<ChainedPic8259> {
-    let mut chain = SpinMutex::new(unsafe { ChainedPic8259::new(32) });
-    chain.get_mut().init();
-    chain
-}
-
-pub static PIC_CHAIN: Singleton<SpinMutex<ChainedPic8259>> = Singleton::new(init_pic_chain);

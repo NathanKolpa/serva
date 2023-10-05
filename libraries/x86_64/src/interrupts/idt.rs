@@ -1,11 +1,8 @@
+use crate::interrupts::*;
+use crate::tables::DescriptorTablePointer;
 use core::mem::size_of;
 use core::ops::{Index, IndexMut};
-
-use crate::arch::x86_64::interrupts::{
-    DivergingErrorIsr, ErrorIsr, GateDescriptor, Isr, PageFaultIsr,
-};
-use crate::arch::x86_64::tables::DescriptorTablePointer;
-use crate::util::address::VirtualAddress;
+use essentials::address::VirtualAddress;
 
 #[repr(C)]
 #[repr(align(16))]

@@ -1,6 +1,5 @@
 use core::mem::size_of;
-
-use crate::util::address::VirtualAddress;
+use essentials::address::VirtualAddress;
 
 /// An abstraction around stacks for interrupts.
 ///

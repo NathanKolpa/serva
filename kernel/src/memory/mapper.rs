@@ -1,12 +1,12 @@
 use core::fmt::Display;
+use essentials::address::*;
 
 use page_walker::*;
+use x86_64::paging::*;
 
-use crate::arch::x86_64::paging::*;
 use crate::memory::flush::{TableCacheFlush, TableListCacheFlush};
 use crate::memory::frame_allocator::FrameAllocator;
 use crate::memory::mapper::tree_display::MemoryMapTreeDisplay;
-use crate::util::address::*;
 
 mod page_walker;
 mod tree_display;

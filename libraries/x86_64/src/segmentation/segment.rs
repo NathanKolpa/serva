@@ -1,7 +1,6 @@
+use crate::segmentation::TaskStateSegment;
+use crate::PrivilegeLevel;
 use core::mem::size_of;
-
-use crate::arch::x86_64::segmentation::tss::TaskStateSegment;
-use crate::arch::x86_64::PrivilegeLevel;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]

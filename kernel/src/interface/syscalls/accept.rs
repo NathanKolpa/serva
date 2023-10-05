@@ -1,8 +1,8 @@
-use crate::arch::x86_64::interrupts::atomic_block;
-use crate::arch::x86_64::syscalls::SyscallArgs;
 use crate::service::{Id, ServiceRef};
 use core::mem::size_of;
 use syscall::SyscallResult;
+use x86_64::interrupts::atomic_block;
+use x86_64::syscalls::SyscallArgs;
 
 const NEW_CONNECTION_FLAG: u64 = 1 << (size_of::<Id>() * 2 * 8);
 

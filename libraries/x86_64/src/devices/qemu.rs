@@ -1,5 +1,4 @@
-use crate::arch::x86_64::port::{Port, WriteOnly};
-use crate::util::sync::SpinMutex;
+use crate::port::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -25,5 +24,3 @@ impl Qemu {
         }
     }
 }
-
-pub static QEMU_DEVICE: SpinMutex<Qemu> = SpinMutex::new(unsafe { Qemu::new() });

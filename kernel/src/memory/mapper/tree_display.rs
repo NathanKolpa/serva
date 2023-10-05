@@ -1,8 +1,8 @@
 use core::fmt::{Display, Formatter};
+use essentials::collections::FixedVec;
+use x86_64::paging::PageTable;
 
-use crate::arch::x86_64::paging::PageTable;
 use crate::memory::MemoryMapper;
-use crate::util::collections::FixedVec;
 
 pub struct MemoryMapTreeDisplay<'a> {
     memory_mapper: &'a MemoryMapper,

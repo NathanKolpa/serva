@@ -1,11 +1,8 @@
+use crate::segmentation::*;
+use crate::tables::DescriptorTablePointer;
+use crate::PrivilegeLevel;
 use core::mem::size_of;
-
-use crate::arch::x86_64::segmentation::segment::*;
-use crate::arch::x86_64::segmentation::selector::SegmentSelector;
-use crate::arch::x86_64::segmentation::TaskStateSegment;
-use crate::arch::x86_64::tables::DescriptorTablePointer;
-use crate::arch::x86_64::PrivilegeLevel;
-use crate::util::address::VirtualAddress;
+use essentials::address::VirtualAddress;
 
 #[derive(Debug)]
 pub enum SegmentDescriptor {

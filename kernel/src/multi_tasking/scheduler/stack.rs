@@ -1,5 +1,5 @@
-use crate::arch::x86_64::paging::VirtualPage;
-use crate::util::address::VirtualAddress;
+use essentials::address::VirtualAddress;
+use x86_64::paging::VirtualPage;
 
 pub struct ThreadStack {
     top: VirtualAddress,

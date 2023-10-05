@@ -1,8 +1,7 @@
+use crate::rflags::RFlags;
+use crate::segmentation::SegmentSelector;
 use core::arch::asm;
-
-use crate::arch::x86_64::segmentation::SegmentSelector;
-use crate::arch::x86_64::RFlags;
-use crate::util::address::VirtualAddress;
+use essentials::address::VirtualAddress;
 
 #[repr(C)]
 #[derive(Clone, Debug, Default)]

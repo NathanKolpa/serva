@@ -1,8 +1,8 @@
-use crate::arch::x86_64::interrupts::atomic_block;
-use crate::arch::x86_64::syscalls::SyscallArgs;
 use crate::service::ServiceRef;
-use crate::util::address::VirtualAddress;
+use essentials::address::VirtualAddress;
 use syscall::{SyscallError, SyscallResult};
+use x86_64::interrupts::atomic_block;
+use x86_64::syscalls::SyscallArgs;
 
 // TODO: this should give more info if needed and be allowed to target other specs
 

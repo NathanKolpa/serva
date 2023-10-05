@@ -1,7 +1,6 @@
+use crate::PrivilegeLevel;
 use core::arch::asm;
 use core::fmt::{Debug, Formatter};
-
-use crate::arch::x86_64::privilege::PrivilegeLevel;
 
 #[repr(transparent)]
 #[derive(Copy, Clone)]

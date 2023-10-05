@@ -5,14 +5,15 @@ edition = "2021"
 
 [dependencies]
 bootloader = { version = "0.9.23", features = ["map_physical_memory"] }
-spin = "0.9.8"
 linked_list_allocator = "0.10.5"
 
 syscall = { path = "../libraries/syscall", features = ["user"] }
+x86_64 = { path = "../libraries/x86_64" }
+essentials = { path = "../libraries/essentials" }
 
 [package.metadata.bootimage]
 run-args = [
-#    "-S",
+    #    "-S",
     "-gdb", "tcp::1234",
     "-serial", "stdio",
     "-display", "none"

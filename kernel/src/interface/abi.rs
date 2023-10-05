@@ -1,9 +1,9 @@
 use core::mem::MaybeUninit;
+use essentials::address::VirtualAddress;
+use x86_64::paging::{PageSize, PageTableEntryFlags, VirtualPage};
+use x86_64::syscalls::SyscallArgs;
 
-use crate::arch::x86_64::paging::{PageSize, PageTableEntryFlags, VirtualPage};
-use crate::arch::x86_64::syscalls::SyscallArgs;
 use crate::memory::{MemoryMapper, NewMappingError, TableCacheFlush};
-use crate::util::address::VirtualAddress;
 
 // TODO: is there a better way of putting a function at a known location?
 

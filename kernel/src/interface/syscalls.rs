@@ -1,7 +1,7 @@
 use syscall::{encode_syscall_result, SyscallError, SyscallResult};
+use x86_64::interrupts::atomic_block;
+use x86_64::syscalls::SyscallArgs;
 
-use crate::arch::x86_64::interrupts::atomic_block;
-use crate::arch::x86_64::syscalls::SyscallArgs;
 use crate::multi_tasking::scheduler::SCHEDULER;
 use crate::service::ServiceRef;
 

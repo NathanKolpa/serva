@@ -2,9 +2,9 @@ use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::{ptr, slice};
 
-/// A vector with a size known at compile-time.
+/// A vector with a capacity known at compile-time.
 /// Because the fixed size, the vector can be stored entirely inline and on the stack.
-/// No allocator is thus required.
+/// No heap allocator is thus required.
 pub struct FixedVec<const SIZE: usize, T> {
     len: usize,
     elements: [MaybeUninit<T>; SIZE],

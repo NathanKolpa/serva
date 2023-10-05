@@ -2,15 +2,15 @@ use alloc::sync::Arc;
 use core::cmp::min;
 use core::fmt::{Debug, Formatter};
 use core::ops::{Deref, DerefMut};
+use essentials::address::VirtualAddress;
+use essentials::collections::FixedVec;
+use essentials::sync::SpinMutex;
+use x86_64::paging::{PageTableEntryFlags, VirtualPage};
 
-use crate::arch::x86_64::paging::{PageTableEntryFlags, VirtualPage};
 use crate::multi_tasking::scheduler::{ThreadBlocker, SCHEDULER};
 use crate::service::model::{Connection, Endpoint, Id, Pipe, Request};
 use crate::service::service_table::spec_ref::ServiceSpecRef;
 use crate::service::{EndpointParameter, NewServiceError, Privilege, ServiceTable};
-use crate::util::address::VirtualAddress;
-use crate::util::collections::FixedVec;
-use crate::util::sync::SpinMutex;
 
 #[derive(Debug)]
 pub enum ConnectError {

@@ -1,6 +1,5 @@
 use core::fmt::{Debug, Formatter};
-
-use crate::util::display::ReadableSize;
+use essentials::display::ReadableSize;
 
 pub struct MemoryInfo {
     pub usable: usize,

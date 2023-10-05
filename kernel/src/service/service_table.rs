@@ -1,17 +1,17 @@
 use alloc::vec::Vec;
 
 pub use endpoint_ref::*;
+use essentials::address::VirtualAddress;
+use essentials::collections::FixedVec;
+use essentials::sync::{PanicOnce, SpinMutex};
 pub use service_ref::*;
 pub use spec_ref::*;
+use x86_64::paging::{PageSize, PageTableEntryFlags, VirtualPage};
 
-use crate::arch::x86_64::paging::{PageSize, PageTableEntryFlags, VirtualPage};
 use crate::memory::{MemoryMapper, NewMappingError};
 use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
 use crate::service::model::*;
 use crate::service::service_table::spec_ref::ServiceSpecRef;
-use crate::util::address::VirtualAddress;
-use crate::util::collections::FixedVec;
-use crate::util::sync::{PanicOnce, SpinMutex};
 
 mod endpoint_ref;
 mod service_ref;

@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-use crate::util::sync::SpinOnce;
+use crate::sync::SpinOnce;
 
 /// A singleton value, that gets initialized on the first access.
 pub struct Singleton<T> {

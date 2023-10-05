@@ -1,14 +1,13 @@
+use crate::arch::x86_64::devices::{PIC_CHAIN, PIC_CHAIN_TICK_INT_INDEX, SERIAL};
 use core::arch::asm;
-
-use crate::arch::x86_64::constants::{MIN_STACK_SIZE, TICK_INTERRUPT_INDEX};
-use crate::arch::x86_64::devices::pic_8259::PIC_CHAIN;
-use crate::arch::x86_64::interrupts::context::{InterruptStackFrame, InterruptedContext};
-use crate::arch::x86_64::interrupts::{InterruptDescriptorTable, PageFaultErrorCode};
-use crate::arch::x86_64::segmentation::*;
-use crate::arch::x86_64::PrivilegeLevel;
-use crate::util::address::VirtualAddress;
-use crate::util::sync::PanicOnce;
-use crate::util::Singleton;
+use essentials::address::VirtualAddress;
+use essentials::sync::PanicOnce;
+use essentials::Singleton;
+use x86_64::constants::MIN_STACK_SIZE;
+use x86_64::interrupts::context::{InterruptStackFrame, InterruptedContext};
+use x86_64::interrupts::{InterruptDescriptorTable, PageFaultErrorCode};
+use x86_64::segmentation::*;
+use x86_64::PrivilegeLevel;
 
 const DOUBLE_FAULT_IST_INDEX: usize = 0;
 
@@ -90,7 +89,7 @@ extern "x86-interrupt" fn page_fault_handler(
     let addr: u64;
 
     unsafe {
-        core::arch::asm!("mov {}, cr2", out(reg) addr, options(nomem, nostack, preserves_flags));
+        asm!("mov {}, cr2", out(reg) addr, options(nomem, nostack, preserves_flags));
     }
 
     let addr = VirtualAddress::from(addr);
@@ -104,7 +103,7 @@ unsafe extern "C" fn tick_inner(ctx: *const InterruptedContext) -> *const Interr
 
     PIC_CHAIN
         .lock()
-        .end_of_interrupt(TICK_INTERRUPT_INDEX as u8);
+        .end_of_interrupt(PIC_CHAIN_TICK_INT_INDEX as u8);
 
     next_ctx
 }
@@ -181,8 +180,8 @@ fn init_idt() -> InterruptDescriptorTable {
 
     idt.breakpoint.set_handler(kernel_segment, tick);
     idt.breakpoint.set_stack_index(DOUBLE_FAULT_IST_INDEX);
-    idt[TICK_INTERRUPT_INDEX].set_handler(kernel_segment, tick);
-    idt[TICK_INTERRUPT_INDEX].set_stack_index(DOUBLE_FAULT_IST_INDEX);
+    idt[PIC_CHAIN_TICK_INT_INDEX].set_handler(kernel_segment, tick);
+    idt[PIC_CHAIN_TICK_INT_INDEX].set_stack_index(DOUBLE_FAULT_IST_INDEX);
 
     idt
 }
@@ -205,5 +204,6 @@ pub fn init_x86_64(interrupt_handlers: InterruptHandlers) {
 
     IDT.load();
 
-    PIC_CHAIN.lock(); // init pic chain by calling lock()
+    PIC_CHAIN.lock().init();
+    SERIAL.lock().init();
 }

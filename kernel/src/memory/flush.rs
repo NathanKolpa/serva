@@ -1,5 +1,5 @@
-use crate::arch::x86_64::paging::PhysicalPage;
-use crate::util::collections::FixedVec;
+use essentials::collections::FixedVec;
+use x86_64::paging::PhysicalPage;
 
 #[must_use]
 pub trait TableCacheFlush {

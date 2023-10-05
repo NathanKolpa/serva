@@ -1,9 +1,8 @@
 use core::fmt::{Display, Formatter};
 use core::ops::{Deref, DerefMut};
 use core::{arch::asm, fmt::Debug};
-
-use crate::util::address::*;
-use crate::util::collections::FixedVec;
+use essentials::address::*;
+use essentials::collections::FixedVec;
 
 #[derive(Clone, Copy, Default)]
 pub struct PageTableEntryFlags {

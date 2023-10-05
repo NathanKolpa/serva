@@ -1,9 +1,9 @@
 use crate::arch::x86_64::init::GDT;
-use crate::arch::x86_64::interrupts::context::{InterruptStackFrame, InterruptedContext};
-use crate::arch::x86_64::RFlags;
 use crate::multi_tasking::scheduler::stack::ThreadStack;
 use crate::service::Id;
-use crate::util::address::VirtualAddress;
+use essentials::address::VirtualAddress;
+use x86_64::interrupts::context::{InterruptStackFrame, InterruptedContext};
+use x86_64::RFlags;
 
 pub type ThreadId = usize;
 

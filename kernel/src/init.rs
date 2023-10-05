@@ -1,14 +1,18 @@
 use core::panic::PanicInfo;
 
 use bootloader::BootInfo;
+use essentials::address::VirtualAddress;
+use essentials::display::ReadableSize;
+use essentials::sync::{PanicOnce, SpinMutex};
+use x86_64::constants::MIN_STACK_SIZE;
+use x86_64::instructions::halt_loop;
+use x86_64::interrupts::atomic_block;
+use x86_64::paging::PhysicalPage;
+use x86_64::syscalls::init_syscalls;
+use x86_64::ARCH_NAME;
 
-use crate::arch::x86_64::constants::MIN_STACK_SIZE;
 use crate::arch::x86_64::init::GDT;
-use crate::arch::x86_64::interrupts::atomic_block;
-use crate::arch::x86_64::paging::PhysicalPage;
-use crate::arch::x86_64::syscalls::init_syscalls;
-use crate::arch::x86_64::ARCH_NAME;
-use crate::arch::x86_64::{halt_loop, init_x86_64};
+use crate::arch::x86_64::init_x86_64;
 use crate::debug::DEBUG_CHANNEL;
 use crate::interface::abi::setup_abi_page;
 use crate::interface::interrupts::INTERRUPT_HANDLERS;
@@ -17,9 +21,6 @@ use crate::memory::heap::{map_heap, HEAP_SIZE};
 use crate::memory::{MemoryMapper, FRAME_ALLOCATOR};
 use crate::multi_tasking::scheduler::{Thread, ThreadStack, SCHEDULER};
 use crate::service::SERVICE_TABLE;
-use crate::util::address::VirtualAddress;
-use crate::util::display::ReadableSize;
-use crate::util::sync::{PanicOnce, SpinMutex};
 
 /// The kernel panic handler.
 pub fn handle_panic(info: &PanicInfo) -> ! {
@@ -106,15 +107,14 @@ fn main_kernel_thread() -> ! {
 mod test_service {
     use alloc::borrow::Cow;
     use alloc::boxed::Box;
+    use essentials::address::VirtualAddress;
+    use essentials::collections::FixedVec;
+    use x86_64::instructions::{halt, halt_loop};
 
-    use crate::arch::x86_64::{halt, halt_loop};
     use crate::service::{
         EndpointParameter, NewEndpoint, NewIntent, Privilege, ServiceEntrypoint, SizedBufferType,
         SERVICE_TABLE,
     };
-    use crate::util::address::VirtualAddress;
-    use crate::util::collections::FixedVec;
-
     pub fn setup_test_service() {
         let entry = ServiceEntrypoint::MappedFunction(VirtualAddress::from(
             test_service_start as *const (),

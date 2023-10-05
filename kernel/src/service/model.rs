@@ -2,12 +2,12 @@ use alloc::borrow::Cow;
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use essentials::address::VirtualAddress;
+use essentials::collections::FixedVec;
+use essentials::sync::SpinMutex;
 
 use crate::memory::MemoryMapper;
 use crate::multi_tasking::scheduler::ThreadBlocker;
-use crate::util::address::VirtualAddress;
-use crate::util::collections::FixedVec;
-use crate::util::sync::SpinMutex;
 
 pub type Id = u16;
 pub type CowString = Cow<'static, str>;

@@ -1,11 +1,11 @@
+use essentials::collections::FixedVec;
+use essentials::sync::SpinMutex;
 pub use stack::*;
 pub use thread::*;
+use x86_64::interrupts::context::InterruptedContext;
+use x86_64::interrupts::int3;
 
-use crate::arch::x86_64::interrupts::context::InterruptedContext;
-use crate::arch::x86_64::interrupts::int3;
 use crate::service::{ServiceRef, SERVICE_TABLE};
-use crate::util::collections::FixedVec;
-use crate::util::sync::SpinMutex;
 
 mod stack;
 mod thread;

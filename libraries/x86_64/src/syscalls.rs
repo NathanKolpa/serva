@@ -1,7 +1,6 @@
+use crate::segmentation::SegmentSelector;
 use core::arch::asm;
 use core::mem::MaybeUninit;
-
-use crate::arch::x86_64::segmentation::SegmentSelector;
 
 #[derive(Debug)]
 #[repr(C)]

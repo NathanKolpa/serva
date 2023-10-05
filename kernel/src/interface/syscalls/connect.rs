@@ -1,10 +1,10 @@
+use essentials::address::VirtualAddress;
 use syscall::{SyscallError, SyscallResult};
+use x86_64::interrupts::atomic_block;
+use x86_64::syscalls::SyscallArgs;
 
-use crate::arch::x86_64::interrupts::atomic_block;
-use crate::arch::x86_64::syscalls::SyscallArgs;
 use crate::memory::NewMappingError;
 use crate::service::{ConnectError, NewServiceError, ServiceRef, SERVICE_TABLE};
-use crate::util::address::VirtualAddress;
 
 pub fn connect_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallResult {
     atomic_block(|| {

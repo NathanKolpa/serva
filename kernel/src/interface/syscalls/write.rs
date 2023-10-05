@@ -1,8 +1,8 @@
-use crate::arch::x86_64::interrupts::atomic_block;
-use crate::arch::x86_64::syscalls::SyscallArgs;
 use crate::interface::syscalls::{SyscallError, SyscallResult};
 use crate::service::{Id, ServiceRef, WriteError};
-use crate::util::address::VirtualAddress;
+use essentials::address::VirtualAddress;
+use x86_64::interrupts::atomic_block;
+use x86_64::syscalls::SyscallArgs;
 
 const WRITE_END_FLAG: u64 = 1;
 

@@ -1,8 +1,8 @@
-use crate::arch::x86_64::interrupts::atomic_block;
-use crate::arch::x86_64::syscalls::SyscallArgs;
 use crate::interface::syscalls::{SyscallError, SyscallResult};
 use crate::service::{CreateRequestError, Id, ServiceRef};
-use crate::util::address::VirtualAddress;
+use essentials::address::VirtualAddress;
+use x86_64::interrupts::atomic_block;
+use x86_64::syscalls::SyscallArgs;
 
 pub fn request_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallResult {
     let connection_id = args.arg0 as Id;
