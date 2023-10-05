@@ -59,6 +59,7 @@ type Handle = u16;
 pub type ConnectionHandle = Handle;
 
 pub type EndpointId = Handle;
+pub type SpecId = Handle;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ConnectError {
@@ -186,5 +187,23 @@ pub unsafe fn accept() -> Option<(ConnectionHandle, EndpointId)> {
             Some((connection_id, endpoint_id))
         }
         Err(e) => unexpected_error(e),
+    }
+}
+
+pub struct EndpointStat {
+    pub id: EndpointId,
+}
+
+pub fn stat_endpoint(_spec_id: Option<SpecId>, endpoint_name: &CStr) -> Option<EndpointStat> {
+    let result = unsafe { syscall(6, endpoint_name.as_ptr() as u64, 0, 0, 0) };
+
+    match result {
+        Ok(id) => Some(EndpointStat {
+            id: id as EndpointId,
+        }),
+        Err(e) => match e {
+            SyscallError::ResourceNotFound => None,
+            e => unexpected_error(e),
+        },
     }
 }

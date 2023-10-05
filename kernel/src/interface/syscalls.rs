@@ -11,17 +11,19 @@ mod disconnect;
 mod hello;
 mod read;
 mod request;
+mod stat_endpoint;
 mod write;
 
 pub type SyscallHandler = fn(&SyscallArgs, ServiceRef) -> SyscallResult;
 
-static USER_SYSCALL_TABLE: [SyscallHandler; 6] = [
+static USER_SYSCALL_TABLE: [SyscallHandler; 7] = [
     hello::hello_syscall,
     connect::connect_syscall,
     request::request_syscall,
     write::write_syscall,
     read::read_syscall,
     accept::accept_syscall,
+    stat_endpoint::stat_endpoint_syscall,
 ];
 
 static KERNEL_SYSCALL_TABLE: [SyscallHandler; 0] = [];

@@ -1,3 +1,4 @@
+use core::ffi::CStr;
 use syscall::EndpointId;
 
 #[derive(PartialEq, Eq)]
@@ -10,7 +11,7 @@ impl Endpoint {
         Self { handle }
     }
 
-    pub fn lookup<E: AsRef<str>>(name: E) -> Option<Endpoint> {
-        todo!()
+    pub fn lookup<E: AsRef<CStr>>(name: E) -> Option<Self> {
+        syscall::stat_endpoint(None, name.as_ref()).map(|s| unsafe { Self::from_handle(s.id) })
     }
 }

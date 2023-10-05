@@ -1,4 +1,5 @@
 use crate::ipc::{Endpoint, Request};
+use core::ffi::CStr;
 use core::marker::PhantomData;
 
 pub trait RouterMut {
@@ -27,7 +28,7 @@ impl StackRouter<PhantomData<()>, PhantomData<()>, PhantomData<()>> {
 
 impl<Handler, E, Parent> StackRouter<Handler, E, Parent> {
     #[must_use]
-    pub fn route<N: AsRef<str>, NewHandler>(
+    pub fn route<N: AsRef<CStr>, NewHandler>(
         self,
         name: N,
         handler: NewHandler,
@@ -40,7 +41,7 @@ impl<Handler, E, Parent> StackRouter<Handler, E, Parent> {
     }
 
     #[must_use]
-    pub fn try_route<N: AsRef<str>, NewHandler>(
+    pub fn try_route<N: AsRef<CStr>, NewHandler>(
         self,
         name: N,
         handler: NewHandler,
@@ -62,8 +63,6 @@ impl Router for StackRouter<PhantomData<()>, PhantomData<()>, PhantomData<()>> {
     fn forward_to(&self, _endpoint: &Endpoint) -> Option<&dyn Fn(Request)> {
         None
     }
-
-
 }
 
 impl RouterMut for StackRouter<PhantomData<()>, PhantomData<()>, PhantomData<()>> {
@@ -87,9 +86,9 @@ where
 }
 
 impl<Handler, Parent> RouterMut for StackRouter<Handler, Endpoint, Parent>
-    where
-        Handler: FnMut(Request),
-        Parent: RouterMut,
+where
+    Handler: FnMut(Request),
+    Parent: RouterMut,
 {
     fn forward_to_mut(&mut self, endpoint: &Endpoint) -> Option<&mut dyn FnMut(Request)> {
         if self.match_on == *endpoint {

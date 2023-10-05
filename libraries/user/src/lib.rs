@@ -8,7 +8,7 @@ pub mod io;
 pub mod ipc;
 
 #[cfg(not(test))]
-extern {
+extern "C" {
     fn main(listener: Listener);
 }
 
