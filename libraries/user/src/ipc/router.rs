@@ -1,12 +1,22 @@
 use crate::ipc::{Endpoint, Request};
 use core::marker::PhantomData;
 
+const EXPECT_HANDLER: &str = "endpoint should have a handler specified";
+
 pub trait RouterMut {
-    fn forward_to_mut(&mut self, endpoint: &Endpoint) -> Option<&mut dyn FnMut(Request)>;
+    fn try_forward_to_mut(&mut self, endpoint: &Endpoint) -> Option<&mut dyn FnMut(Request)>;
+
+    fn forward_to_mut(&mut self, endpoint: &Endpoint) -> &mut dyn FnMut(Request) {
+        self.try_forward_to_mut(endpoint).expect(EXPECT_HANDLER)
+    }
 }
 
 pub trait Router {
-    fn forward_to(&self, endpoint: &Endpoint) -> Option<&dyn Fn(Request)>;
+    fn try_forward_to(&self, endpoint: &Endpoint) -> Option<&dyn Fn(Request)>;
+
+    fn forward_to(&self, endpoint: &Endpoint) -> &dyn Fn(Request) {
+        self.try_forward_to(endpoint).expect(EXPECT_HANDLER)
+    }
 }
 
 pub struct StackRouter<Handler, Endpoint, Parent> {
@@ -33,7 +43,7 @@ impl<Handler, E, Parent> StackRouter<Handler, E, Parent> {
         handler: NewHandler,
     ) -> StackRouter<NewHandler, Endpoint, Self>
     where
-        NewHandler: Fn(Request),
+        NewHandler: FnMut(Request),
     {
         self.try_route(name, handler)
             .expect("endpoint name should exists in the current service's spec")
@@ -46,7 +56,7 @@ impl<Handler, E, Parent> StackRouter<Handler, E, Parent> {
         handler: NewHandler,
     ) -> Option<StackRouter<NewHandler, Endpoint, Self>>
     where
-        NewHandler: Fn(Request),
+        NewHandler: FnMut(Request),
     {
         let endpoint = Endpoint::lookup(name)?;
 
@@ -59,13 +69,13 @@ impl<Handler, E, Parent> StackRouter<Handler, E, Parent> {
 }
 
 impl Router for StackRouter<PhantomData<()>, PhantomData<()>, PhantomData<()>> {
-    fn forward_to(&self, _endpoint: &Endpoint) -> Option<&dyn Fn(Request)> {
+    fn try_forward_to(&self, _endpoint: &Endpoint) -> Option<&dyn Fn(Request)> {
         None
     }
 }
 
 impl RouterMut for StackRouter<PhantomData<()>, PhantomData<()>, PhantomData<()>> {
-    fn forward_to_mut(&mut self, _endpoint: &Endpoint) -> Option<&mut dyn FnMut(Request)> {
+    fn try_forward_to_mut(&mut self, _endpoint: &Endpoint) -> Option<&mut dyn FnMut(Request)> {
         None
     }
 }
@@ -75,12 +85,12 @@ where
     Handler: Fn(Request),
     Parent: Router,
 {
-    fn forward_to(&self, endpoint: &Endpoint) -> Option<&dyn Fn(Request)> {
+    fn try_forward_to(&self, endpoint: &Endpoint) -> Option<&dyn Fn(Request)> {
         if self.match_on == *endpoint {
             return Some(&self.handler);
         }
 
-        return self.parent.forward_to(endpoint);
+        return self.parent.try_forward_to(endpoint);
     }
 }
 
@@ -89,11 +99,11 @@ where
     Handler: FnMut(Request),
     Parent: RouterMut,
 {
-    fn forward_to_mut(&mut self, endpoint: &Endpoint) -> Option<&mut dyn FnMut(Request)> {
+    fn try_forward_to_mut(&mut self, endpoint: &Endpoint) -> Option<&mut dyn FnMut(Request)> {
         if self.match_on == *endpoint {
             return Some(&mut self.handler);
         }
 
-        return self.parent.forward_to_mut(endpoint);
+        return self.parent.try_forward_to_mut(endpoint);
     }
 }

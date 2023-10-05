@@ -2,9 +2,15 @@
 resolver = "2"
 members = [
     "kernel",
+
+    # libaries
     "libraries/user",
     "libraries/syscall",
     "libraries/testing",
     "libraries/x86_64",
     "libraries/essentials",
+
+    # services
+    "services/fs",
+    "services/tty",
 ]

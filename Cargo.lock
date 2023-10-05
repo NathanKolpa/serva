@@ -22,6 +22,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs"
+version = "0.1.0"
+dependencies = [
+ "user",
+]
+
+[[package]]
 name = "kernel"
 version = "1.0.0"
 dependencies = [
@@ -82,6 +89,13 @@ version = "0.1.0"
 [[package]]
 name = "testing"
 version = "0.1.0"
+
+[[package]]
+name = "tty"
+version = "0.1.0"
+dependencies = [
+ "user",
+]
 
 [[package]]
 name = "user"
