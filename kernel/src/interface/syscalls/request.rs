@@ -1,5 +1,3 @@
-use core::ffi::CStr;
-
 use crate::arch::x86_64::interrupts::atomic_block;
 use crate::arch::x86_64::syscalls::SyscallArgs;
 use crate::interface::syscalls::{SyscallError, SyscallResult};
@@ -8,16 +6,20 @@ use crate::util::address::VirtualAddress;
 
 pub fn request_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallResult {
     let connection_id = args.arg0 as Id;
+    let name_len = args.arg1 as usize;
+    let name_ptr = args.arg2;
 
     let Some(target_endpoint_name) =
-        atomic_block(|| current_service.deref_incoming_pointer(VirtualAddress::from(args.arg1)))
+        atomic_block(|| current_service.deref_incoming_pointer(VirtualAddress::from(name_ptr)))
     else {
         return Err(SyscallError::InvalidPointerMappings);
     };
 
-    let target_endpoint_name = CStr::from_bytes_until_nul(&target_endpoint_name[0..256])
-        .map_err(|_| SyscallError::InvalidStringArgument)?
-        .to_str()
+    if name_len > target_endpoint_name.len() {
+        return Err(SyscallError::InvalidStringArgument);
+    }
+
+    let target_endpoint_name = core::str::from_utf8(&target_endpoint_name[0..name_len])
         .map_err(|_| SyscallError::InvalidStringArgument)?;
 
     atomic_block(|| {

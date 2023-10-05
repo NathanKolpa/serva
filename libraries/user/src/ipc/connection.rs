@@ -1,5 +1,4 @@
 use crate::ipc::Request;
-use core::ffi::CStr;
 use syscall::ConnectionHandle;
 
 pub struct Connection {
@@ -15,7 +14,7 @@ impl Connection {
         self.handle
     }
 
-    pub fn request<E: AsRef<CStr>>(&mut self, endpoint: E) -> crate::io::Result<Request<'_>> {
+    pub fn request<E: AsRef<str>>(&mut self, endpoint: E) -> crate::io::Result<Request<'_>> {
         unsafe {
             syscall::request(self.handle, endpoint.as_ref())?;
             Ok(Request::from_handle(self.handle))

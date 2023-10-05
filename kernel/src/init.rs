@@ -106,7 +106,6 @@ fn main_kernel_thread() -> ! {
 mod test_service {
     use alloc::borrow::Cow;
     use alloc::boxed::Box;
-    use alloc::ffi::CString;
 
     use crate::arch::x86_64::{halt, halt_loop};
     use crate::service::{
@@ -190,9 +189,7 @@ mod test_service {
     fn test_service_start() -> ! {
         debug_println!("Connecting");
 
-        let service_name = CString::new("Test Dependency").unwrap();
-
-        let connection = syscall::connect(&service_name).unwrap();
+        let connection = syscall::connect("Test Dependency").unwrap();
 
         debug_println!("Connection Handle {connection}");
 
@@ -200,7 +197,7 @@ mod test_service {
         halt();
         halt();
 
-        let endpoint_name = CString::new("echo").unwrap();
+        let endpoint_name = "echo";
 
         let mut nonce = 40u8;
 

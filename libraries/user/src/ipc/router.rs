@@ -1,5 +1,4 @@
 use crate::ipc::{Endpoint, Request};
-use core::ffi::CStr;
 use core::marker::PhantomData;
 
 pub trait RouterMut {
@@ -28,7 +27,7 @@ impl StackRouter<PhantomData<()>, PhantomData<()>, PhantomData<()>> {
 
 impl<Handler, E, Parent> StackRouter<Handler, E, Parent> {
     #[must_use]
-    pub fn route<N: AsRef<CStr>, NewHandler>(
+    pub fn route<N: AsRef<str>, NewHandler>(
         self,
         name: N,
         handler: NewHandler,
@@ -41,7 +40,7 @@ impl<Handler, E, Parent> StackRouter<Handler, E, Parent> {
     }
 
     #[must_use]
-    pub fn try_route<N: AsRef<CStr>, NewHandler>(
+    pub fn try_route<N: AsRef<str>, NewHandler>(
         self,
         name: N,
         handler: NewHandler,

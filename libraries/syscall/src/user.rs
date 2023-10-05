@@ -1,7 +1,6 @@
 //! Typed wrappers around syscalls.
 
 use core::arch::asm;
-use core::ffi::CStr;
 use core::fmt::Debug;
 use core::mem::size_of;
 
@@ -71,8 +70,8 @@ fn unexpected_error(err: SyscallError) -> ! {
     panic!("Unexpected syscall error: {:?}", err)
 }
 
-pub fn connect(spec_name: &CStr) -> Result<ConnectionHandle, ConnectError> {
-    let result = unsafe { syscall(1, spec_name.as_ptr() as u64, 0, 0, 0) };
+pub fn connect(spec_name: &str) -> Result<ConnectionHandle, ConnectError> {
+    let result = unsafe { syscall(1, spec_name.len() as u64, spec_name.as_ptr() as u64, 0, 0) };
 
     match result {
         Ok(id) => Ok(id as ConnectionHandle),
@@ -92,9 +91,17 @@ pub enum RequestError {
 
 pub unsafe fn request(
     connection: ConnectionHandle,
-    endpoint_name: &CStr,
+    endpoint_name: &str,
 ) -> Result<(), RequestError> {
-    let result = unsafe { syscall(2, connection as u64, endpoint_name.as_ptr() as u64, 0, 0) };
+    let result = unsafe {
+        syscall(
+            2,
+            connection as u64,
+            endpoint_name.len() as u64,
+            endpoint_name.as_ptr() as u64,
+            0,
+        )
+    };
 
     match result {
         Ok(_) => Ok(()),
@@ -125,8 +132,8 @@ pub unsafe fn write(
         syscall(
             3,
             connection as u64,
-            buffer.as_ptr() as u64,
             buffer.len() as u64,
+            buffer.as_ptr() as u64,
             flags,
         )
     };
@@ -152,8 +159,8 @@ pub unsafe fn read(connection: ConnectionHandle, buffer: &mut [u8]) -> Result<us
         syscall(
             4,
             connection as u64,
-            buffer.as_ptr() as u64,
             buffer.len() as u64,
+            buffer.as_ptr() as u64,
             0,
         )
     };
@@ -194,8 +201,16 @@ pub struct EndpointStat {
     pub id: EndpointId,
 }
 
-pub fn stat_endpoint(_spec_id: Option<SpecId>, endpoint_name: &CStr) -> Option<EndpointStat> {
-    let result = unsafe { syscall(6, endpoint_name.as_ptr() as u64, 0, 0, 0) };
+pub fn stat_endpoint(_spec_id: Option<SpecId>, endpoint_name: &str) -> Option<EndpointStat> {
+    let result = unsafe {
+        syscall(
+            6,
+            endpoint_name.len() as u64,
+            endpoint_name.as_ptr() as u64,
+            0,
+            0,
+        )
+    };
 
     match result {
         Ok(id) => Some(EndpointStat {

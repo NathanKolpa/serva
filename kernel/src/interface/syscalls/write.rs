@@ -16,14 +16,19 @@ fn map_write_error_to_syscall_error(err: WriteError) -> SyscallError {
 
 pub fn write_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallResult {
     let connection_id = args.arg0 as Id;
-    let buffer_size = args.arg2 as usize;
+    let buffer_size = args.arg1 as usize;
+    let buffer_ptr = args.arg2;
     let flags = args.arg3;
 
     let Some(write_buffer) =
-        atomic_block(|| current_service.deref_incoming_pointer(VirtualAddress::from(args.arg1)))
+        atomic_block(|| current_service.deref_incoming_pointer(VirtualAddress::from(buffer_ptr)))
     else {
         return Err(SyscallError::InvalidPointerMappings);
     };
+
+    if buffer_size > write_buffer.len() {
+        return Err(SyscallError::InvalidStringArgument);
+    }
 
     let source_buffer = &write_buffer[0..buffer_size];
     let mut start = 0;

@@ -6,15 +6,20 @@ use crate::util::address::VirtualAddress;
 
 pub fn read_syscall(args: &SyscallArgs, current_service: ServiceRef) -> SyscallResult {
     let connection_id = args.arg0 as Id;
-    let buffer_size = args.arg2 as usize;
+    let buffer_len = args.arg1 as usize;
+    let buffer_ptr = args.arg2;
 
     let Some(read_buffer) =
-        atomic_block(|| current_service.deref_incoming_pointer(VirtualAddress::from(args.arg1)))
+        atomic_block(|| current_service.deref_incoming_pointer(VirtualAddress::from(buffer_ptr)))
     else {
         return Err(SyscallError::InvalidPointerMappings);
     };
 
-    let target_buffer = &mut read_buffer[0..buffer_size];
+    if buffer_len > read_buffer.len() {
+        return Err(SyscallError::InvalidPointerMappings);
+    }
+
+    let target_buffer = &mut read_buffer[0..buffer_len];
     let mut start = 0;
 
     atomic_block(|| loop {
