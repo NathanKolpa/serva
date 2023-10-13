@@ -222,3 +222,15 @@ pub fn stat_endpoint(_spec_id: Option<SpecId>, endpoint_name: &str) -> Option<En
         },
     }
 }
+
+#[derive(Copy, Clone, Debug)]
+pub enum FuseError {
+    RequestClosed,
+    // ParametersDoNotMatch
+    // NotIncoming
+    // NotOutgoing
+}
+
+pub unsafe fn forward(_incoming: ConnectionHandle, _outgoing: ConnectionHandle) -> Result<(), FuseError> {
+    todo!()
+}

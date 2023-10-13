@@ -10,7 +10,7 @@ impl Endpoint {
         Self { handle }
     }
 
-    pub fn lookup<E: AsRef<str>>(name: E) -> Option<Self> {
+    pub fn try_lookup<E: AsRef<str>>(name: E) -> Option<Self> {
         syscall::stat_endpoint(None, name.as_ref()).map(|s| unsafe { Self::from_handle(s.id) })
     }
 }
